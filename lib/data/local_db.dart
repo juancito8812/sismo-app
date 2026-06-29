@@ -1,0 +1,87 @@
+import 'package:sqflite/sqflite.dart';
+import 'package:path/path.dart';
+import '../data/earthquake.dart';
+
+class LocalDb {
+  static final LocalDb _instance = LocalDb._();
+  static LocalDb get instance => _instance;
+
+  LocalDb._();
+
+  Database? _db;
+
+  Future<Database> get database async {
+    if (_db != null) return _db!;
+    _db = await _initDb();
+    return _db!;
+  }
+
+  Future<Database> _initDb() async {
+    final path = join(await getDatabasesPath(), 'sismos_ve.db');
+    return openDatabase(path, version: 1, onCreate: (db, version) {
+      return db.execute('''
+        CREATE TABLE events (
+          id TEXT PRIMARY KEY,
+          magnitude REAL,
+          place TEXT,
+          time INTEGER,
+          latitude REAL,
+          longitude REAL,
+          depth_km REAL,
+          source TEXT,
+          notified INTEGER DEFAULT 0
+        )
+      ''');
+    });
+  }
+
+  Future<void> insertOrUpdate(Earthquake event) async {
+    final db = await database;
+    await db.insert(
+      'events',
+      {
+        'id': event.id,
+        'magnitude': event.magnitude,
+        'place': event.place,
+        'time': event.time.millisecondsSinceEpoch,
+        'latitude': event.latitude,
+        'longitude': event.longitude,
+        'depth_km': event.depthKm,
+        'source': event.source,
+        'notified': 0,
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  Future<List<Earthquake>> recent({int limit = 50}) async {
+    final db = await database;
+    final rows = await db.query(
+      'events',
+      orderBy: 'time DESC',
+      limit: limit,
+    );
+    return rows
+        .map((r) => Earthquake(
+              id: r['id'] as String,
+              magnitude: (r['magnitude'] as num).toDouble(),
+              place: r['place'] as String,
+              time: DateTime.fromMillisecondsSinceEpoch(r['time'] as int),
+              latitude: (r['latitude'] as num).toDouble(),
+              longitude: (r['longitude'] as num).toDouble(),
+              depthKm: (r['depth_km'] as num).toDouble(),
+              source: r['source'] as String? ?? 'USGS',
+            ))
+        .toList();
+  }
+
+  Future<void> markNotified(String id) async {
+    final db = await database;
+    await db.update(
+      'events',
+      {'notified': 1},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+}

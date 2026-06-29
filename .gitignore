@@ -1,0 +1,33 @@
+# Flutter
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+build/
+
+# Local config / secrets
+lib/services/firebase_options.dart
+lib/data/funvisis_credentials.dart
+local_config.dart
+
+key.jks
+*.jks
+*.keystore
+
+# Android
+android/.gradle/
+android/local.properties
+android/captures/
+android/app/release/
+android/app/debug/
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# Sistema
+.DS_Store
+Thumbs.db
