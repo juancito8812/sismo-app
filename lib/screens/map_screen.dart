@@ -73,7 +73,7 @@ class _MapScreenState extends State<MapScreen> {
                       },
                       child: Container(
                         decoration: BoxDecoration(
-                          color: _magnitudeColor(e.magnitude).withOpacity(0.85),
+                          color: Earthquake.magnitudeColor(e.magnitude).withOpacity(0.85),
                           shape: BoxShape.circle,
                           border: Border.all(
                             color: Colors.white,
@@ -116,10 +116,5 @@ class _MapScreenState extends State<MapScreen> {
     return 20;
   }
 
-  Color _magnitudeColor(double mag) {
-    if (mag >= 6.0) return Colors.red;
-    if (mag >= 5.0) return Colors.orange;
-    if (mag >= 4.0) return Colors.amber;
-    return Colors.green;
-  }
+  Color _magnitudeColor(double mag) => Earthquake.magnitudeColor(mag);
 }

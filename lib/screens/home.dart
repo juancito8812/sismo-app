@@ -30,7 +30,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<List<Earthquake>> _load() async {
     await _initBackground();
-    final int? sinceMs;
+    int? sinceMs;
     final now = DateTime.now();
     switch (_dateRange) {
       case 1: sinceMs = now.subtract(const Duration(hours: 24)).millisecondsSinceEpoch;
@@ -150,7 +150,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       final e = items[index];
                       return ListTile(
                         leading: CircleAvatar(
-                          backgroundColor: _magnitudeColor(e.magnitude),
+                          backgroundColor: Earthquake.magnitudeColor(e.magnitude),
                           child: Text(
                             'M${e.magnitude.toStringAsFixed(1)}',
                             style: const TextStyle(
@@ -219,13 +219,6 @@ class _HomeScreenState extends State<HomeScreen> {
       onSelected: (_) => onTap(),
       visualDensity: VisualDensity.compact,
     );
-  }
-
-  Color _magnitudeColor(double mag) {
-    if (mag >= 6.0) return Colors.red;
-    if (mag >= 5.0) return Colors.orange;
-    if (mag >= 4.0) return Colors.amber;
-    return Colors.green;
   }
 
   String _formatTime(DateTime time) {

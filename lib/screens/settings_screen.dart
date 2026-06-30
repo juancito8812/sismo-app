@@ -161,7 +161,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _exportCsv() async {
     setState(() => _exporting = true);
     try {
-      final events = await LocalDb.instance.recent(limit: 10000);
+      final events = await LocalDb.instance.recent();
       final rows = <List<String>>[
         ['ID', 'Magnitud', 'Lugar', 'Tiempo', 'Latitud', 'Longitud', 'Profundidad_km', 'Fuente', 'Notificado'],
       ];

@@ -4,10 +4,6 @@ import 'package:html/parser.dart' as html_parser;
 import '../data/earthquake.dart';
 
 class EarthquakeRepository {
-  static const _usgsUrl =
-      'https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson';
-  static const _funvisisUrl = 'https://www.funvisis.gob.ve/';
-  static const _cimaUrl = 'https://www.cima.org.ve/';
   static const _usgsVenezuelaUrl =
       'https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&minlatitude=-5&maxlatitude=15&minlongitude=-75&maxlongitude=-60&minmagnitude=2.5&orderby=time';
 

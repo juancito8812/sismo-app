@@ -1,3 +1,5 @@
+import 'package:flutter/material.dart';
+
 class Earthquake {
   final String id;
   final double magnitude;
@@ -28,6 +30,14 @@ class Earthquake {
 
   @override
   int get hashCode => id.hashCode;
+
+  /// Color según magnitud (compartido por todas las pantallas)
+  static Color magnitudeColor(double mag) {
+    if (mag >= 6.0) return Colors.red;
+    if (mag >= 5.0) return Colors.orange;
+    if (mag >= 4.0) return Colors.amber;
+    return Colors.green;
+  }
 
   factory Earthquake.fromJson(Map<String, dynamic> json) {
     final props = json['properties'] ?? {};

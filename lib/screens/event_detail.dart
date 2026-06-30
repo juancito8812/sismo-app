@@ -32,7 +32,7 @@ class EventDetailScreen extends StatelessWidget {
                 children: [
                   CircleAvatar(
                     radius: 48,
-                    backgroundColor: _magnitudeColor(event.magnitude),
+                    backgroundColor: Earthquake.magnitudeColor(event.magnitude),
                     child: Text(
                       'M${event.magnitude.toStringAsFixed(1)}',
                       style: const TextStyle(
@@ -101,7 +101,7 @@ class EventDetailScreen extends StatelessWidget {
                           height: 40,
                           child: Icon(
                             Icons.circle,
-                            color: _magnitudeColor(event.magnitude),
+                            color: Earthquake.magnitudeColor(event.magnitude),
                             size: 32,
                           ),
                         ),
@@ -135,10 +135,5 @@ class EventDetailScreen extends StatelessWidget {
     );
   }
 
-  Color _magnitudeColor(double mag) {
-    if (mag >= 6.0) return Colors.red;
-    if (mag >= 5.0) return Colors.orange;
-    if (mag >= 4.0) return Colors.amber;
-    return Colors.green;
-  }
+  Color _magnitudeColor(double mag) => Earthquake.magnitudeColor(mag);
 }
