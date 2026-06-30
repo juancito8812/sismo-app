@@ -76,6 +76,51 @@ class LocalDb {
         .toList();
   }
 
+  /// Query con filtros: magnitud mínima, fecha desde (epoch ms), fuente
+  Future<List<Earthquake>> queryFiltered({
+    int limit = 200,
+    double? minMagnitude,
+    int? sinceEpochMs,
+    String? source,
+  }) async {
+    final db = await database;
+    final conditions = <String>[];
+    final args = <dynamic>[];
+
+    if (minMagnitude != null) {
+      conditions.add('magnitude >= ?');
+      args.add(minMagnitude);
+    }
+    if (sinceEpochMs != null) {
+      conditions.add('time >= ?');
+      args.add(sinceEpochMs);
+    }
+    if (source != null) {
+      conditions.add('source = ?');
+      args.add(source);
+    }
+
+    final where = conditions.isEmpty ? null : conditions.join(' AND ');
+    final rows = await db.query(
+      'events',
+      where: where,
+      whereArgs: args.isEmpty ? null : args,
+      orderBy: 'time DESC',
+      limit: limit,
+    );
+    return rows.map((r) => Earthquake(
+          id: r['id'] as String,
+          magnitude: (r['magnitude'] as num).toDouble(),
+          place: r['place'] as String,
+          time: DateTime.fromMillisecondsSinceEpoch(r['time'] as int),
+          latitude: (r['latitude'] as num).toDouble(),
+          longitude: (r['longitude'] as num).toDouble(),
+          depthKm: (r['depth_km'] as num).toDouble(),
+          source: r['source'] as String? ?? 'USGS',
+          notified: (r['notified'] as int? ?? 0),
+        )).toList();
+  }
+
   Future<int> unnotifiedCount() async {
     final db = await database;
     final result = await db.rawQuery(

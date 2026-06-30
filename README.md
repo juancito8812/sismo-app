@@ -82,12 +82,11 @@ lib/
 - [x] Badge de nuevos + pull-to-refresh
 - [x] Icono personalizado + crash fix (MainActivity, try-catch Workmanager)
 - [x] APK release compilado y funcional (commit `049b7d2`)
-- [ ] Mapa con marcadores por magnitud
-- [ ] Pantalla de detalle del evento
-- [ ] Filtros avanzados (fecha, magnitud, zona)
-- [ ] Pantalla de ajustes
-- [ ] Exportar historial a CSV
-- [ ] Scraping de FUNVISIS / CIMA
+- [x] Mapa con marcadores por magnitud
+- [x] Pantalla de detalle del evento
+- [x] Filtros inline (magnitud, fecha, fuente) + ajustes
+- [x] Exportar historial a CSV + limpiar DB
+- [x] Scraping de FUNVISIS / CIMA
 - [ ] Firma APK release + Google Play
 
 ## Licencia
