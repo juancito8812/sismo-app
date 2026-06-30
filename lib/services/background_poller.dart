@@ -1,16 +1,18 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:workmanager/workmanager.dart';
 import '../data/earthquake.dart';
 import '../data/local_db.dart';
+import '../data/repository.dart';
 import '../services/notification_service.dart';
 
-const _kChannel = 'sismos.background';
+const kBackgroundChannel = 'sismos.background';
 
 // Dispatcher de WorkManager (debe ser top-level)
 @pragma('vm:entry-point')
 void callbackDispatcher() {
   Workmanager().executeTask((task, inputData) async {
-    if (task == _kChannel) {
+    if (task == kBackgroundChannel) {
       try {
         await _checkAndNotify();
       } catch (e) {

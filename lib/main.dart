@@ -11,7 +11,7 @@ void main() async {
   );
   await Workmanager().registerPeriodicTask(
     'sismos.background',
-    _kChannel,
+    kBackgroundChannel,
     frequency: const Duration(minutes: 15),
     constraints: Constraints(
       networkType: NetworkType.connected,
