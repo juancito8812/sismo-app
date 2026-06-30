@@ -3,13 +3,13 @@ import 'package:venezuela_sismos_app/screens/home.dart';
 import 'package:workmanager/workmanager.dart';
 import 'package:venezuela_sismos_app/services/background_poller.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  Workmanager().initialize(
+  await Workmanager().initialize(
     callbackDispatcher,
     isInDebugMode: false,
   );
-  Workmanager().registerPeriodicTask(
+  await Workmanager().registerPeriodicTask(
     'sismos.background',
     _kChannel,
     frequency: const Duration(minutes: 15),

@@ -21,6 +21,14 @@ class Earthquake {
     this.notified = 0,
   });
 
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is Earthquake && runtimeType == other.runtimeType && id == other.id;
+
+  @override
+  int get hashCode => id.hashCode;
+
   factory Earthquake.fromJson(Map<String, dynamic> json) {
     final props = json['properties'] ?? {};
     final geom = json['geometry'] ?? {};

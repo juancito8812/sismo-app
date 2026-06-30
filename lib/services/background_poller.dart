@@ -15,6 +15,8 @@ void callbackDispatcher() {
         await _checkAndNotify();
       } catch (e) {
         // evitar crash en background
+        // ignore: avoid_print
+        print('[background_poller] error: $e');
       }
       return Future.value(true);
     }
@@ -31,10 +33,11 @@ Future<void> _checkAndNotify() async {
   final events = await repo.fetchRecent();
   final saved = await db.recent();
 
-  final savedIds = saved.map((e) => e.id).toSet();
+  final unNotifiedIds =
+      saved.where((e) => e.notified == 0).map((e) => e.id).toSet();
   for (final eq in events) {
-    final notified = saved.map((e) => e.id).contains(eq.id);
-    if (!notified && eq.magnitude >= 3) {
+    final alreadyNotified = !unNotifiedIds.contains(eq.id);
+    if (!alreadyNotified && eq.magnitude >= 3) {
       await notifier.showSismoAlert(
         id: eq.id.hashCode,
         title: 'Sismo detectado M${eq.magnitude.toStringAsFixed(1)}',

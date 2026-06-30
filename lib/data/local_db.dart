@@ -48,7 +48,7 @@ class LocalDb {
         'longitude': event.longitude,
         'depth_km': event.depthKm,
         'source': event.source,
-        'notified': 0,
+        'notified': event.notified,
       },
       conflictAlgorithm: ConflictAlgorithm.replace,
     );

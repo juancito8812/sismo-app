@@ -31,6 +31,10 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<List<Earthquake>> _load() async {
     await _initBackground();
     final items = await LocalDb.instance.recent();
+    final count = await LocalDb.instance.unnotifiedCount();
+    if (mounted) {
+      setState(() => _newCount = count);
+    }
     return items;
   }
 
