@@ -80,6 +80,8 @@ lib/
 - [x] Scaffold base (modelo, DB, home)
 - [x] Background polling + notificaciones
 - [x] Badge de nuevos + pull-to-refresh
+- [x] Icono personalizado + crash fix (MainActivity, try-catch Workmanager)
+- [x] APK release compilado y funcional (commit `049b7d2`)
 - [ ] Mapa con marcadores por magnitud
 - [ ] Pantalla de detalle del evento
 - [ ] Filtros avanzados (fecha, magnitud, zona)
