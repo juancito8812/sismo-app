@@ -1,5 +1,5 @@
-name: venezuela_sismos_app
-description: App de alertas sísmicas para Venezuela - Monitoreo local 100%
+name: sismo_ve
+description: App de alertas sísmicas para Venezuela - SismoVE
 version: 0.1.0+1
 
 environment:

@@ -99,7 +99,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Sismos Venezuela'),
+        title: const Text('SismoVE'),
         backgroundColor: theme.colorScheme.inversePrimary,
         actions: [
           if (_newCount > 0)

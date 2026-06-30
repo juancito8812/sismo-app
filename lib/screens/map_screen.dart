@@ -54,7 +54,7 @@ class _MapScreenState extends State<MapScreen> {
                 urlTemplate:
                     'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                 userAgentPackageName:
-                    'com.juancito8812.venezuela_sismos_app',
+                    'com.juancito8812.sismo_ve',
               ),
               MarkerLayer(
                 markers: events.map((e) {

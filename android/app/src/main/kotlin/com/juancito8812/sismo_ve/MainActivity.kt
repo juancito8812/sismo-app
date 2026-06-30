@@ -1,4 +1,4 @@
-package com.juancito8812.venezuela_sismos_app
+package com.juancito8812.sismo_ve
 
 import io.flutter.embedding.android.FlutterActivity
 

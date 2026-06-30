@@ -1,4 +1,4 @@
-# Sismos Venezuela 🇻🇪
+# SismoVE 🇻🇪
 
 App Android de alertas sísmicas para Venezuela — monitoreo local 100% offline-first con datos de USGS y fuentes venezolanas.
 

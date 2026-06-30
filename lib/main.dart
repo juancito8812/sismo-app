@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:venezuela_sismos_app/screens/home.dart';
+import 'package:sismo_ve/screens/home.dart';
 import 'package:workmanager/workmanager.dart';
-import 'package:venezuela_sismos_app/services/background_poller.dart';
+import 'package:sismo_ve/services/background_poller.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -35,7 +35,7 @@ class SismosApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Sismos Venezuela',
+      title: 'SismoVE',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.red),
         useMaterial3: true,
