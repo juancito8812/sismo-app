@@ -2,6 +2,9 @@
 
 App Android de alertas sísmicas para Venezuela — monitoreo local 100% offline-first con datos de USGS y preparación sísmica integral.
 
+![Build](https://github.com/juancito8812/sismo-app/actions/workflows/build-apk.yml/badge.svg)
+[![Latest Release](https://img.shields.io/github/v/release/juancito8812/sismo-app)](https://github.com/juancito8812/sismo-app/releases/latest)
+
 ## Características
 
 ### 📡 Monitoreo sísmico
@@ -25,6 +28,11 @@ App Android de alertas sísmicas para Venezuela — monitoreo local 100% offline
 | **Reportar sismo** | Formulario: ¿lo sentiste?, ubicación, intensidad (1-5), daños |
 | **Primeros auxilios** | Guía offline: RCP, hemorragias, fracturas, Heimlich |
 | **Zonas de riesgo** | Mapa con 7 zonas sísmicas de Venezuela + leyenda de peligro |
+
+### 🔄 Auto-actualización
+- **Update checker integrado** — consulta la última release de GitHub
+- **Descarga directa** — botón para descargar el APK más reciente
+- **CI/CD automático** — cada push genera release con APK
 
 ### ⚙️ Datos
 - **Exportar CSV** — historial completo a documentos del dispositivo
@@ -51,6 +59,14 @@ App Android de alertas sísmicas para Venezuela — monitoreo local 100% offline
 - Flutter SDK 3.27.x
 - Android SDK 34+
 - JDK 17+
+
+## Descargar
+
+[![Latest Release](https://img.shields.io/github/v/release/juancito8812/sismo-app)](https://github.com/juancito8812/sismo-app/releases/latest)
+
+Descarga el APK más reciente desde [GitHub Releases](https://github.com/juancito8812/sismo-app/releases/latest).
+
+> ⚠️ Al ser una release fuera de Google Play, Android puede pedirte activar "Instalar apps de orígenes desconocidos". Aceptalo para instalar.
 
 ## Compilar
 
@@ -110,7 +126,8 @@ lib/
 - [x] Guía de seguridad + kit emergencia + contactos VE
 - [x] Linterna SOS + plan familiar + reportar sismo
 - [x] Primeros auxilios + zonas de riesgo
-- [x] CI/CD: GitHub Actions compila APK en cada push
+- [x] Auto-update checker desde GitHub Releases
+- [x] CI/CD: GitHub Actions build + release automático
 - [ ] Firma APK + Google Play
 
 ## Licencia
