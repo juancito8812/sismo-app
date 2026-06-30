@@ -1,8 +1,11 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:csv/csv.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:http/http.dart' as http;
 import '../data/earthquake.dart';
 import '../data/local_db.dart';
 import '../data/repository.dart';
@@ -22,6 +25,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _exporting = false;
   bool _clearing = false;
   bool _seeding = false;
+  bool _checking = false;
+  String? _updateInfo;
+  String? _updateUrl;
   String? _exportPath;
   int _seededCount = 0;
 
@@ -137,6 +143,47 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 : const Icon(Icons.cloud_download),
             label: Text(_seeding ? 'Descargando...' : 'Seed datos históricos (2026)'),
           ),
+          const SizedBox(height: 24),
+          const Divider(),
+          const SizedBox(height: 16),
+          Text('Actualizaciones', style: theme.textTheme.titleMedium),
+          const SizedBox(height: 8),
+          if (_updateInfo != null)
+            Card(
+              color: _updateInfo!.contains('disponible') ? Colors.green.shade50 : Colors.grey.shade100,
+              child: ListTile(
+                leading: Icon(
+                  _updateInfo!.contains('disponible') ? Icons.system_update : Icons.check_circle,
+                  color: _updateInfo!.contains('disponible') ? Colors.green : Colors.grey,
+                ),
+                title: Text(_updateInfo!),
+                subtitle: _updateUrl != null ? Text('v1.0.0 → $_updateInfo') : null,
+                trailing: _updateUrl != null
+                    ? ElevatedButton(
+                        onPressed: () => launchUrl(Uri.parse(_updateUrl!)),
+                        child: const Text('Descargar'),
+                      )
+                    : null,
+              ),
+            ),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: _checking ? null : _checkForUpdate,
+                  icon: _checking
+                      ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                      : const Icon(Icons.system_update),
+                  label: Text(_checking ? 'Buscando...' : 'Buscar actualización'),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Center(
+            child: Text('Versión: 1.0.0 (build ${_buildNumber})',
+              style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+          ),
           const SizedBox(height: 32),
         ],
       ),
@@ -242,6 +289,47 @@ class _SettingsScreenState extends State<SettingsScreen> {
       }
     } finally {
       setState(() => _seeding = false);
+    }
+  }
+
+  int get _buildNumber => 13;
+
+  Future<void> _checkForUpdate() async {
+    setState(() { _checking = true; _updateInfo = null; _updateUrl = null; });
+    try {
+      final uri = Uri.parse('https://api.github.com/repos/juancito8812/sismo-app/releases/latest');
+      final response = await http.get(uri, headers: {'Accept': 'application/vnd.github+json'})
+          .timeout(const Duration(seconds: 15));
+      if (response.statusCode != 200) {
+        setState(() => _updateInfo = 'Error al consultar actualizaciones');
+        return;
+      }
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      final tag = data['tag_name'] as String? ?? '';
+      final assets = data['assets'] as List? ?? [];
+      String? apkUrl;
+      for (final a in assets) {
+        final name = a['name'] as String? ?? '';
+        if (name.endsWith('.apk')) {
+          apkUrl = a['browser_download_url'] as String?;
+          break;
+        }
+      }
+
+      // Extraer número de versión del tag (ej: "v13" → 13)
+      final versionNum = int.tryParse(tag.replaceAll(RegExp(r'[^\d]'), ''));
+      if (versionNum != null && versionNum > _buildNumber) {
+        setState(() {
+          _updateInfo = 'Actualización disponible: $tag';
+          _updateUrl = apkUrl;
+        });
+      } else {
+        setState(() => _updateInfo = 'Ya tienes la última versión ($tag)');
+      }
+    } catch (e) {
+      setState(() => _updateInfo = 'Error: $e');
+    } finally {
+      setState(() => _checking = false);
     }
   }
 }

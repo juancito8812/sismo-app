@@ -1,6 +1,6 @@
 name: sismo_ve
 description: App de alertas sísmicas para Venezuela - SismoVE
-version: 0.1.0+1
+version: 1.0.0+13
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
