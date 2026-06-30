@@ -71,17 +71,16 @@ class LocalDb {
               longitude: (r['longitude'] as num).toDouble(),
               depthKm: (r['depth_km'] as num).toDouble(),
               source: r['source'] as String? ?? 'USGS',
+              notified: (r['notified'] as int? ?? 0),
             ))
         .toList();
   }
 
-  Future<void> markNotified(String id) async {
+  Future<int> unnotifiedCount() async {
     final db = await database;
-    await db.update(
-      'events',
-      {'notified': 1},
-      where: 'id = ?',
-      whereArgs: [id],
+    final result = await db.rawQuery(
+      'SELECT COUNT(*) as count FROM events WHERE notified = 0',
     );
+    return (result.first['count'] as int? ?? 0);
   }
 }

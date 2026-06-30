@@ -1,8 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:venezuela_sismos_app/screens/home.dart';
+import 'package:workmanager/workmanager.dart';
+import 'package:venezuela_sismos_app/services/background_poller.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
+  Workmanager().initialize(
+    callbackDispatcher,
+    isInDebugMode: false,
+  );
+  Workmanager().registerPeriodicTask(
+    'sismos.background',
+    _kChannel,
+    frequency: const Duration(minutes: 15),
+    constraints: Constraints(
+      networkType: NetworkType.connected,
+      requiresBatteryNotLow: true,
+    ),
+  );
   runApp(const SismosApp());
 }
 

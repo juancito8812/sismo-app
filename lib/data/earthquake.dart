@@ -7,6 +7,7 @@ class Earthquake {
   final double longitude;
   final double depthKm;
   final String source;
+  final int notified;
 
   const Earthquake({
     required this.id,
@@ -17,6 +18,7 @@ class Earthquake {
     required this.longitude,
     required this.depthKm,
     this.source = 'USGS',
+    this.notified = 0,
   });
 
   factory Earthquake.fromJson(Map<String, dynamic> json) {
