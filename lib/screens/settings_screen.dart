@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:csv/csv.dart';
@@ -18,11 +17,13 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   double _minMagnitude = 3.0;
   int _pollInterval = 15;
-  int _dateFilter = 0; // 0=todos, 1=24h, 2=7d, 3=30d
+  int _dateFilter = 0;
   String _sourceFilter = 'Todas';
   bool _exporting = false;
   bool _clearing = false;
+  bool _seeding = false;
   String? _exportPath;
+  int _seededCount = 0;
 
   final _sources = ['Todas', 'USGS'];
 
@@ -37,23 +38,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          // === Filtros ===
           Text('Filtros', style: theme.textTheme.titleMedium),
           const SizedBox(height: 12),
-
-          // Magnitud mínima
           Text('Magnitud mínima: M${_minMagnitude.toStringAsFixed(1)}'),
           Slider(
-            value: _minMagnitude,
-            min: 1.0,
-            max: 8.0,
-            divisions: 14,
+            value: _minMagnitude, min: 1.0, max: 8.0, divisions: 14,
             label: 'M${_minMagnitude.toStringAsFixed(1)}',
             onChanged: (v) => setState(() => _minMagnitude = v),
           ),
           const SizedBox(height: 8),
-
-          // Período
           Text('Período'),
           SegmentedButton<int>(
             segments: const [
@@ -66,39 +59,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
             onSelectionChanged: (v) => setState(() => _dateFilter = v.first),
           ),
           const SizedBox(height: 8),
-
-          // Fuente
           DropdownButtonFormField<String>(
             value: _sourceFilter,
-            decoration: const InputDecoration(
-              labelText: 'Fuente',
-              border: OutlineInputBorder(),
-            ),
+            decoration: const InputDecoration(labelText: 'Fuente', border: OutlineInputBorder()),
             items: _sources.map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
             onChanged: (v) => setState(() => _sourceFilter = v ?? 'Todas'),
           ),
           const SizedBox(height: 8),
-
-          // Aplicar filtros
           FilledButton.icon(
             onPressed: () => Navigator.pop(context, _buildFilterMap()),
             icon: const Icon(Icons.filter_alt),
             label: const Text('Aplicar filtros'),
           ),
-
           const SizedBox(height: 24),
           const Divider(),
           const SizedBox(height: 16),
 
-          // === Background ===
           Text('Background', style: theme.textTheme.titleMedium),
           const SizedBox(height: 8),
           Text('Intervalo de polling: $_pollInterval min'),
           Slider(
-            value: _pollInterval.toDouble(),
-            min: 5,
-            max: 60,
-            divisions: 11,
+            value: _pollInterval.toDouble(), min: 5, max: 60, divisions: 11,
             label: '$_pollInterval min',
             onChanged: (v) => setState(() => _pollInterval = v.round()),
           ),
@@ -106,7 +87,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const Divider(),
           const SizedBox(height: 16),
 
-          // === Exportar ===
           Text('Datos', style: theme.textTheme.titleMedium),
           const SizedBox(height: 8),
           if (_exportPath != null)
@@ -118,17 +98,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 subtitle: Text(_exportPath!, style: const TextStyle(fontSize: 12)),
               ),
             ),
+          if (_seededCount > 0)
+            Card(
+              color: Colors.blue.shade50,
+              child: ListTile(
+                leading: const Icon(Icons.history, color: Colors.blue),
+                title: Text('$_seededCount eventos históricos (Ene–Jun 2026)'),
+              ),
+            ),
           Row(
             children: [
               Expanded(
                 child: FilledButton.icon(
                   onPressed: _exporting ? null : _exportCsv,
                   icon: _exporting
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
+                      ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
                       : const Icon(Icons.file_download),
                   label: const Text('Exportar CSV'),
                 ),
@@ -138,17 +122,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 child: OutlinedButton.icon(
                   onPressed: _clearing ? null : _clearDb,
                   icon: _clearing
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
+                      ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
                       : const Icon(Icons.delete_outline, color: Colors.red),
-                  label: Text('Limpiar DB',
-                      style: TextStyle(color: _clearing ? null : Colors.red)),
+                  label: Text('Limpiar DB', style: TextStyle(color: _clearing ? null : Colors.red)),
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 12),
+          FilledButton.icon(
+            onPressed: _seeding ? null : _seedHistorical,
+            icon: _seeding
+                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                : const Icon(Icons.cloud_download),
+            label: Text(_seeding ? 'Descargando...' : 'Seed datos históricos (2026)'),
           ),
           const SizedBox(height: 32),
         ],
@@ -179,17 +166,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ['ID', 'Magnitud', 'Lugar', 'Tiempo', 'Latitud', 'Longitud', 'Profundidad_km', 'Fuente', 'Notificado'],
       ];
       for (final e in events) {
-        rows.add([
-          e.id,
-          e.magnitude.toStringAsFixed(2),
-          e.place,
-          e.time.toIso8601String(),
-          e.latitude.toStringAsFixed(4),
-          e.longitude.toStringAsFixed(4),
-          e.depthKm.toStringAsFixed(1),
-          e.source,
-          e.notified.toString(),
-        ]);
+        rows.add([e.id, e.magnitude.toStringAsFixed(2), e.place, e.time.toIso8601String(),
+          e.latitude.toStringAsFixed(4), e.longitude.toStringAsFixed(4),
+          e.depthKm.toStringAsFixed(1), e.source, e.notified.toString()]);
       }
       final csv = const ListToCsvConverter().convert(rows);
       final dir = await getApplicationDocumentsDirectory();
@@ -198,15 +177,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
       await file.writeAsString(csv);
       setState(() => _exportPath = file.path);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Exportado: $fileName')),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Exportado: $fileName')));
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error al exportar: $e')),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
       }
     } finally {
       setState(() => _exporting = false);
@@ -226,24 +201,47 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
     );
     if (confirm != true) return;
-
     setState(() => _clearing = true);
     try {
       final db = await LocalDb.instance.database;
       await db.delete('events');
+      setState(() => _seededCount = 0);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Historial limpiado')));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
+    } finally {
+      setState(() => _clearing = false);
+    }
+  }
+
+  Future<void> _seedHistorical() async {
+    setState(() => _seeding = true);
+    try {
+      final repo = EarthquakeRepository();
+      final events = await repo.fetchHistorical(
+        since: DateTime(2026, 1, 1),
+        until: DateTime(2026, 6, 30),
+      );
+      final db = LocalDb.instance;
+      for (final eq in events) {
+        await db.insertOrUpdate(eq);
+      }
+      setState(() => _seededCount = events.length);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Historial limpiado')),
+          SnackBar(content: Text('${events.length} eventos históricos cargados')),
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
       }
     } finally {
-      setState(() => _clearing = false);
+      setState(() => _seeding = false);
     }
   }
 }
