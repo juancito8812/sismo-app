@@ -5,19 +5,27 @@ import 'package:venezuela_sismos_app/services/background_poller.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Workmanager().initialize(
-    callbackDispatcher,
-    isInDebugMode: false,
-  );
-  await Workmanager().registerPeriodicTask(
-    'sismos.background',
-    kBackgroundChannel,
-    frequency: const Duration(minutes: 15),
-    constraints: Constraints(
-      networkType: NetworkType.connected,
-      requiresBatteryNotLow: true,
-    ),
-  );
+  try {
+    await Workmanager().initialize(
+      callbackDispatcher,
+      isInDebugMode: false,
+    );
+    await Workmanager().registerPeriodicTask(
+      'sismos.background',
+      kBackgroundChannel,
+      frequency: const Duration(minutes: 15),
+      constraints: Constraints(
+        networkType: NetworkType.connected,
+        requiresBatteryNotLow: true,
+      ),
+    );
+    // ignore: avoid_print
+    print('[main] Workmanager initialized');
+  } catch (e) {
+    // Si Workmanager falla (ej. permisos no concedidos), la app igual arranca
+    // ignore: avoid_print
+    print('[main] Workmanager init error (non-fatal): $e');
+  }
   runApp(const SismosApp());
 }
 
