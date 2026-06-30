@@ -8,6 +8,10 @@ import 'safety_guide.dart';
 import 'emergency_kit.dart';
 import 'emergency_contacts.dart';
 import 'torch_sos.dart';
+import 'family_plan.dart';
+import 'felt_report.dart';
+import 'first_aid.dart';
+import 'risk_zones.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -167,6 +171,14 @@ class _HomeScreenState extends State<HomeScreen> {
             _prepButton(Icons.phone, 'Contactos', () => _openPage(const EmergencyContactsScreen())),
             const SizedBox(width: 8),
             _prepButton(Icons.flash_on, 'SOS', () => _openPage(const TorchSosScreen())),
+            const SizedBox(width: 8),
+            _prepButton(Icons.people, 'Familia', () => _openPage(const FamilyPlanScreen())),
+            const SizedBox(width: 8),
+            _prepButton(Icons.report, 'Reportar', () => _openPage(const FeltReportScreen())),
+            const SizedBox(width: 8),
+            _prepButton(Icons.medical_services, 'Auxilios', () => _openPage(const FirstAidScreen())),
+            const SizedBox(width: 8),
+            _prepButton(Icons.map, 'Riesgo', () => _openPage(const RiskZonesScreen())),
           ],
         ),
       ),
