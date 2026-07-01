@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:html/parser.dart' as html_parser;
 import '../data/earthquake.dart';
 
 class EarthquakeRepository {
@@ -43,45 +42,7 @@ class EarthquakeRepository {
   }
 
   Future<Set<Earthquake>> _scrapeFunvisis() async {
-    // FUNVISIS no expone datos sísmicos estructurados en HTML.
-    // Intentamos varios endpoints conocidos.
-    final urls = [
-      'http://www.funvisis.gob.ve/',
-    ];
-    for (final url in urls) {
-      try {
-        final uri = Uri.parse(url);
-        final response = await http.get(uri).timeout(const Duration(seconds: 10));
-        if (response.statusCode != 200) continue;
-
-        final doc = html_parser.parse(response.body);
-        final text = doc.body?.text ?? '';
-
-        // Buscar patrones de datos sísmicos en el texto
-        final results = <Earthquake>{};
-        final regex = RegExp(
-          r'[Mm]agnitud\s*[:\-]?\s*([0-9]+[.,][0-9]+)',
-        );
-        for (final match in regex.allMatches(text)) {
-          final mag = double.tryParse(match.group(1)!.replaceAll(',', '.'));
-          if (mag != null && mag >= 2.5) {
-            results.add(Earthquake(
-              id: 'funvisis_${match.start}_${DateTime.now().millisecondsSinceEpoch}',
-              magnitude: mag,
-              place: 'Reportado por FUNVISIS',
-              time: DateTime.now(),
-              latitude: 8.0,
-              longitude: -66.0,
-              depthKm: 10,
-              source: 'FUNVISIS',
-            ));
-          }
-        }
-        if (results.isNotEmpty) return results;
-      } catch (_) {
-        continue;
-      }
-    }
+    // FUNVISIS no expone datos sísmicos estructurados.
     return {};
   }
 

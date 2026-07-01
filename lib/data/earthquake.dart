@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'dart:ui' show Color;
 
 class Earthquake {
   final String id;
@@ -32,11 +32,12 @@ class Earthquake {
   int get hashCode => id.hashCode;
 
   /// Color según magnitud (compartido por todas las pantallas)
+  // ponytail: valores hex directos, sin importar material
   static Color magnitudeColor(double mag) {
-    if (mag >= 6.0) return Colors.red;
-    if (mag >= 5.0) return Colors.orange;
-    if (mag >= 4.0) return Colors.amber;
-    return Colors.green;
+    if (mag >= 6.0) return const Color(0xFFE53935); // red
+    if (mag >= 5.0) return const Color(0xFFFB8C00); // orange
+    if (mag >= 4.0) return const Color(0xFFFFC107); // amber
+    return const Color(0xFF43A047); // green
   }
 
   factory Earthquake.fromJson(Map<String, dynamic> json) {
