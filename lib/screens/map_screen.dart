@@ -116,8 +116,8 @@ class _MapScreenState extends State<MapScreen> {
                                 color: Colors.black.withOpacity(0.3), blurRadius: 4, offset: const Offset(0, 2))],
                             ),
                             child: Center(
-                              child: Text(e.place.contains('eventos') ? e.place.split(' ')[0] : '${e.magnitude.toStringAsFixed(1)}',
-                                style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold)),
+                              child: Text(e.place.contains('eventos') ? e.place.split(' ')[0] : e.magnitude.toStringAsFixed(1),
+                                style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
                             ),
                           ),
                         ),

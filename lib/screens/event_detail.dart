@@ -32,14 +32,16 @@ class EventDetailScreen extends StatelessWidget {
           IconButton(
             icon: const Icon(Icons.share),
             tooltip: 'Compartir',
-            onPressed: () {
+            onPressed: () async {
               final url = Uri.parse('https://wa.me/?text=${Uri.encodeComponent(
                 'SismoVE - Sismo detectado M${event.magnitude.toStringAsFixed(1)}\n'
                 '${event.place}\n'
                 '${timeFormat.format(event.time.toLocal())}\n'
                 'Prof: ${event.depthKm.toStringAsFixed(1)} km\n'
                 'Coord: ${lat.toStringAsFixed(4)}, ${lon.toStringAsFixed(4)}')}');
-              launchUrl(url);
+              final ok = await canLaunchUrl(url);
+              if (!ok) return;
+              await launchUrl(url);
             },
           ),
         ],

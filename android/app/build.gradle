@@ -20,10 +20,7 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.juancito8812.sismo_ve"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = 23
         targetSdk = 35
         versionCode = flutter.versionCode
@@ -33,15 +30,57 @@ android {
         }
     }
 
+    signingConfigs {
+        // Se usa un keystore local generado automáticamente para debug, no signingConfigs.debug.
+        // Diferencias:
+        // - signingConfigs.debug: keystore global del SDK (~/.android/debug.keystore), validez 1 año, alias androiddebugkey.
+        // - Este customDebug: keystore local del proyecto (por si falla/solapa el SDK), genera buid si falta,
+        //   aisla signing del debug del proyecto y evita conflictos en CI/multi-usuario.
+        registerCustomDebug {
+            storeFile file("${rootProject.rootDir}/debug.jks")
+            storePassword "android"
+            keyAlias "androiddebugkey"
+            keyPassword "android"
+        }
+    }
+
     buildTypes {
+        debug {
+            signingConfig signingConfigs.registerCustomDebug
+        }
         release {
             // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.debug
+            signingConfig signingConfigs.registerCustomDebug
         }
     }
 }
 
 flutter {
     source = "../.."
+}
+
+def localDebugKeystore = file("${rootProject.rootDir}/debug.jks")
+if (!localDebugKeystore.exists()) {
+    tasks.register('generateLocalDebugKeystore') {
+        group = 'build'
+        description = 'Genera debug keystore local del proyecto si falta'
+        doLast {
+            localDebugKeystore.parentFile.mkdirs()
+            exec {
+                commandLine 'keytool', '-genkey', '-v',
+                    '-keystore', localDebugKeystore,
+                    '-storepass', 'android',
+                    '-alias', 'androiddebugkey',
+                    '-keypass', 'android',
+                    '-keyalg', 'RSA',
+                    '-keysize', '2048',
+                    '-validity', '10000',
+                    '-dname', 'CN=Android Debug,O=Android,C=US'
+            }
+        }
+        outputs.file localDebugKeystore
+    }
+    tasks.named('preBuild').configure {
+        dependsOn 'generateLocalDebugKeystore'
+    }
 }

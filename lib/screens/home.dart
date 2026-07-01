@@ -91,6 +91,11 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  void _dismissNews() {
+    setState(() => _newCount = 0);
+    LocalDb.instance.clearNotified();
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -106,7 +111,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: Chip(
                   visualDensity: VisualDensity.compact,
                   label: Text('$_newCount nuevo(s)'),
-                  onDeleted: () => setState(() => _newCount = 0),
+                  onDeleted: _dismissNews,
                 ),
               ),
             ),

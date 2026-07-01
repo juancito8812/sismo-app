@@ -220,6 +220,11 @@ class _FamilyPlanScreenState extends State<FamilyPlanScreen> {
     final uri = type == 'sms'
         ? Uri.parse('sms:$clean?body=${Uri.encodeComponent(text)}')
         : Uri.parse('https://wa.me/$clean?text=${Uri.encodeComponent(text)}');
-    if (await canLaunchUrl(uri)) await launchUrl(uri);
+    if (!uri.hasEmptyPath && await canLaunchUrl(uri)) {
+      await launchUrl(uri);
+    } else if (mounted) {
+      final label = type == 'sms' ? 'SMS' : 'WhatsApp';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('No se pudo enviar por $label: destino no disponible o número inválido')));    }
   }
 }

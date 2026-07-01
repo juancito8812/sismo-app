@@ -10,6 +10,7 @@ void main() async {
       callbackDispatcher,
       isInDebugMode: false,
     );
+    await Workmanager().cancelAll();
     await Workmanager().registerPeriodicTask(
       'sismos.background',
       kBackgroundChannel,

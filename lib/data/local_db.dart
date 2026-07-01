@@ -40,7 +40,15 @@ class LocalDb {
         ''');
       },
       onUpgrade: (db, oldVersion, newVersion) async {
-        if (oldVersion < 1) { /* schema v1 inicial */ }
+        // Scaffold de migraciones futuras.
+      },
+      onOpen: (db) async {
+        // Asegurar columna notified si la DB existía desde antes.
+        final info = await db.rawQuery("PRAGMA table_info(events)");
+        final hasNotified = info.any((c) => c['name'] == 'notified');
+        if (!hasNotified) {
+          await db.execute("ALTER TABLE events ADD COLUMN notified INTEGER DEFAULT 0");
+        }
       },
     );
   }
@@ -62,6 +70,16 @@ class LocalDb {
       },
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
+  }
+
+  Future<void> clearNotified() async {
+    final db = await database;
+    await db.update('events', {'notified': 0});
+  }
+
+  Future<void> markNotified(String id, [int value = 1]) async {
+    final db = await database;
+    await db.update('events', {'notified': value}, where: 'id = ?', whereArgs: [id]);
   }
 
   Future<List<Earthquake>> recent({int limit = 50}) async {

@@ -85,14 +85,25 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen> {
 
   Future<void> _sendSms(String number, String message) async {
     final clean = number.replaceAll(RegExp(r'[^\d+]'), '');
+    if (clean.isEmpty) return;
     final uri = Uri.parse('sms:$clean?body=${Uri.encodeComponent(message)}');
-    if (await canLaunchUrl(uri)) await launchUrl(uri);
+    if (!uri.hasEmptyPath && await canLaunchUrl(uri)) {
+      await launchUrl(uri);
+    } else if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No se encontró app SMS para enviar el mensaje')));    }
   }
 
   Future<void> _sendWhatsApp(String number, String message) async {
     final clean = number.replaceAll(RegExp(r'[^\d+]'), '');
+    if (clean.isEmpty) return;
     final uri = Uri.parse('https://wa.me/$clean?text=${Uri.encodeComponent(message)}');
-    if (await canLaunchUrl(uri)) await launchUrl(uri);
+    if (!uri.hasEmptyPath && await canLaunchUrl(uri)) {
+      await launchUrl(uri);
+    } else if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('WhatsApp no disponible o número inválido')));
+    }
   }
 
   Future<void> _call(String number) async {

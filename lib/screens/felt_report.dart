@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../data/local_db.dart';
 import '../data/earthquake.dart';
 
 class FeltReportScreen extends StatefulWidget {
@@ -26,6 +25,7 @@ class _FeltReportScreenState extends State<FeltReportScreen> {
 
   Future<void> _submit() async {
     final prefs = await SharedPreferences.getInstance();
+    final damage = _damageCtrl.text.replaceAll('|', ' ');
     final reports = prefs.getStringList('felt_reports') ?? [];
     reports.add([
       DateTime.now().toIso8601String(),
@@ -34,7 +34,7 @@ class _FeltReportScreenState extends State<FeltReportScreen> {
       _location,
       _felt.toString(),
       _intensity.toString(),
-      _damageCtrl.text,
+      damage,
     ].join('|'));
     await prefs.setStringList('felt_reports', reports);
     if (mounted) {

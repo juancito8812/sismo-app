@@ -1,7 +1,4 @@
-import 'dart:convert';
-import 'package:http/http.dart' as http;
 import 'package:workmanager/workmanager.dart';
-import '../data/earthquake.dart';
 import '../data/local_db.dart';
 import '../data/repository.dart';
 import '../services/notification_service.dart';
@@ -37,7 +34,7 @@ Future<void> _checkAndNotify() async {
 
   final unNotifiedIds =
       saved.where((e) => e.notified == 0).map((e) => e.id).toSet();
-  for (final eq in events) {
+  for (var eq in events) {
     final alreadyNotified = !unNotifiedIds.contains(eq.id);
     if (!alreadyNotified && eq.magnitude >= 3) {
       await notifier.showSismoAlert(
@@ -45,6 +42,7 @@ Future<void> _checkAndNotify() async {
         title: 'Sismo detectado M${eq.magnitude.toStringAsFixed(1)}',
         body: eq.place,
       );
+      await db.markNotified(eq.id);
     }
     await db.insertOrUpdate(eq);
   }

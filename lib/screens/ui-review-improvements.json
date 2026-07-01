@@ -1,0 +1,209 @@
+[
+  {
+    "screen": "Home",
+    "file": "lib/screens/home.dart",
+    "severity": "🔴 Alta",
+    "category": "Navegación / Jerarquía",
+    "issue": "Acciones principales no visibles sin scroll horizontal; categorías '📡 Monitoreo' y '🧰 Preparación' están solo demarcadas por emojis débiles dentro de `_buildPrepBar` y pueden pasar desapercibidas.",
+    "widget_to_modify": "Container _buildPrepBar → Row de _prepButton + separadores",
+    "recommendation": "Insertar un `Chip`/`Text` título por categoría ('Monitoreo' / 'Preparación') con `Divider` visual entre bloques y ejecutar `ScrollView` solo como fallback, manteniendo los 4-5 acciones críticas en la primera fila sin scroll."
+  },
+  {
+    "screen": "Home",
+    "file": "lib/screens/home.dart",
+    "severity": "🔴 Alta",
+    "category": "Tamaños táctiles",
+    "issue": "`_prepButton` usa `padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4)` con icono size 18 y label fontSize 12; el touch target resultante puede quedar por debajo de 48x48dp, especialmente en dispositivos con densidad alta.",
+    "widget_to_modify": "Widget `_prepButton` (TextButton.icon)",
+    "recommendation": "Cambiar padding a mínimo vertical 8-12dp, aumentar icono a size 20-22 y label a fontSize 13-14; usar `minimumSize: const Size(64, 48)` en `TextButton.styleFrom`."
+  },
+  {
+    "screen": "Home",
+    "file": "lib/screens/home.dart",
+    "severity": "🟡 Media",
+    "category": "Loading / Estados",
+    "issue": "Estado vacío de la lista es solo `Center(child: Text('Sin eventos registrados'))` sin icono, ilustración o acción sugerida; no hay skeleton loader ni shimmer durante la carga inicial del `FutureBuilder`.",
+    "widget_to_modify": "FutureBuilder builder → rama `items.isEmpty` y rama `connectionState != done`",
+    "recommendation": "Reemplazar texto plano por `Column` con `Icon(Icons.hourglass_empty, size: 48)` + `Text` + `FilledButton.tonal('Ver zonas de riesgo')`; opcional: sumar `Shimmer` o `SkeletonItem` x3 mientras carga."
+  },
+  {
+    "screen": "Home",
+    "file": "lib/screens/home.dart",
+    "severity": "🟡 Media",
+    "category": "Accesibilidad",
+    "issue": "IconButtons de AppBar (`map`, `settings`) y FilterChips carecen de `semanticLabel`/`tooltip` completo; el chip `_newCount` es dinámico y no anuncia cuándo desaparece.",
+    "widget_to_modify": "IconButton actions en AppBar y `_filterChip`",
+    "recommendation": "Agregar `tooltip` semántico en IconButtons y `Semantics(label: 'Filtro magnitud...', liveRegion: true)` en chips; accessibility value para el badge."
+  },
+  {
+    "screen": "Listas (Home)",
+    "file": "lib/screens/home.dart",
+    "severity": "🟡 Media",
+    "category": "Tamaños táctiles / Consistencia",
+    "issue": "`ListTile` de eventos usa `CircleAvatar` default ~40px como leading; aunque el tile táctil total es 56dp, el avatar como foco visual puede percibirse pequeño y no comunica magnitud sin leer el texto M.",
+    "widget_to_modify": "ListTile.leading → CircleAvatar",
+    "recommendation": "Aumentar CircleAvatar a radius:20 (40→40px, mantener) pero considerar `Container` de 44x44 con borde/icons más prominentes; asegurar que el color de magnitud no sea único indicador — sumar icono diferenciado o patrón."
+  },
+  {
+    "screen": "Mapa",
+    "file": "lib/screens/map_screen.dart",
+    "severity": "🔴 Alta",
+    "category": "Rendimiento / Legibilidad",
+    "issue": "Marcadores renderizan texto con `fontSize: 9` (cluster: `e.place.split(' ')[0]` o magnitud) ilegible en mapa; clustering solo se activa con `events.length >= 15`, dejando marcadores dispersos sin agrupación en datasets medianos.",
+    "widget_to_modify": "MarkerLayer → Marker child (Container + Text)",
+    "recommendation": "Elevar fontSize a 11-12 para clusters, mostrar contador circular con background blanco para mejor contraste; bajar umbral de clustering a 8-10 eventos o implementar grid-distance clustering proporcional al zoom."
+  },
+  {
+    "screen": "Mapa",
+    "file": "lib/screens/map_screen.dart",
+    "severity": "🟡 Media",
+    "category": "Feedback visual / Navegación",
+    "issue": "No hay `InkWell`/`GestureDetector` feedback visual al tocar marcador; el `Navigator.push` es inmediato sin confirmación ni highlight. Leyenda superpuesta en top-right puede solapar markers en zonas densas (Caracas, litoral).",
+    "widget_to_modify": "Marker child → GestureDetector → Container",
+    "recommendation": "Rodear Container con `InkWell` o `AnimatedScale` (0.9→1.0) para feedback; posicionar leyenda en bottom-center o hacerla colapsable con `FloatingActionButton` toggle."
+  },
+  {
+    "screen": "Mapa",
+    "file": "lib/screens/map_screen.dart",
+    "severity": "🟡 Media",
+    "category": "Rendimiento listas/mapas",
+    "issue": "`_cluster()` recorre O(n²) dentro del build; con 200 eventos latencia perceptible. No caché el resultado ni usa `ValueNotifier`/` Computation`.",
+    "widget_to_modify": "`_cluster(List<Earthquake>)` en `_MapScreenState`",
+    "recommendation": "Mover clustering a `compute()` isolate o precalcular en repository; cachear clustered list en estado y solo recalcular al cambiar fuente/filtro, no en cada rebuild."
+  },
+  {
+    "screen": "Detalle del sismo",
+    "file": "lib/screens/event_detail.dart",
+    "severity": "🟡 Media",
+    "category": "Feedback visual / Jerarquía",
+    "issue": "Info cards usan `trailing: Icon(Icons.chevron_right)` aunque no navegan a otra pantalla; genera affordance falsa. Marker del mapa mini es `Icons.location_on` genérico, sin diferenciar magnitud.",
+    "widget_to_modify": "`_infoCard` → trailing icon; Marker child en MapOptions",
+    "recommendation": "Remover chevron o convertirlo en acción real (ej. 'Abrir en Maps externo'); en detalle, mantener coherencia con colores de magnitud del marker."
+  },
+  {
+    "screen": "Guía de seguridad",
+    "file": "lib/screens/safety_guide.dart",
+    "severity": "🟡 Media",
+    "category": "Accesibilidad / Contraste",
+    "issue": "Secciones usan colores saturados (rojo, naranja, verde, azul) como color primario del título; en tema oscuro el contraste puede NO cumplir WCAG AA. Icono size 22 sin padding táctil asociado.",
+    "widget_to_modify": "`_section` Row con Icon y Text title",
+    "recommendation": "Usar `color` solo como acento secundario (icon + divider), mantener título en `theme.colorScheme.onSurface`; aumentar Icon a size 26+ con semantics label."
+  },
+  {
+    "screen": "Kit de emergencia",
+    "file": "lib/screens/emergency_kit.dart",
+    "severity": "🔴 Alta",
+    "category": "Tamaños táctiles",
+    "issue": "`CheckboxListTile` tiene `dense: true` y `visualDensity: VisualDensity.compact`; reduce el touch target por debajo de 48dp, dificultando selección en emergencias o con manos temblorosas.",
+    "widget_to_modify": "CheckboxListTile dentro de `_KitCategory.items.map`",
+    "recommendation": "Eliminar `dense: true`, usar `visualDensity: VisualDensity.standard`, aumentar `contentPadding` a mínimo 16dp horizontal; considerar Switch o ChipToggle más grande."
+  },
+  {
+    "screen": "Contactos",
+    "file": "lib/screens/emergency_contacts.dart",
+    "severity": "🔴 Alta",
+    "category": "Tamaños táctiles",
+    "issue": "Trailing row con 3 IconButtons (`message`, `phone`, `close`) en espacio reducido; iconos size 18/16 con padding mínimo pueden generar taps imprecisos o solapamiento. No hay confirmación visual clara de eliminación.",
+    "widget_to_modify": "`_contactTile` trailing Row",
+    "recommendation": "Reemplazar Row por `PopupMenuButton` con acciones (Llamar, SMS, WhatsApp, Eliminar) o expandir trailing con `ButtonBar` y tamaño mínimo 48x48 por icono; eliminar contacto con confirmación dialog."
+  },
+  {
+    "screen": "Contactos",
+    "file": "lib/screens/emergency_contacts.dart",
+    "severity": "🟡 Media",
+    "category": "Estados vacíos",
+    "issue": "No hay estado vacío diferenciado entre 'sin contactos personalizados' y 'lista completa'; usuario no sabe que puede agregar más hasta ver el botón AppBar.",
+    "widget_to_modify": "ListView children condicional `_customContacts.isNotEmpty`",
+    "recommendation": "Agregar `Center(icon + text + FAB)` cuando `_customContacts.isEmpty`, invitando a agregar con `_pickContact`; tooltip accesible en FAB."
+  },
+  {
+    "screen": "SOS / Emergencia",
+    "file": "lib/screens/torch_sos.dart",
+    "severity": "🟡 Media",
+    "category": "Feedback visual / Accesibilidad",
+    "issue": "`_checkTorch()` se ejecuta en initState y tarda en reflejarse; mientras tanto la UI muestra 'Flash LED + Vibración + Sonido' sin loading state. Botón SOS no tiene disabled state ni confirmación de pulsación larga para evitar activación accidental.",
+    "widget_to_modify": "`_build` condicional `_torchChecked`; ElevatedButton SOS",
+    "recommendation": "Mostrar `LinearProgressIndicator` o skeleton sobre el área de status mientras `_torchChecked == false`; agregar `onLongPress` o confirmación dialog para iniciar SOS (accidental tap protection)."
+  },
+  {
+    "screen": "SOS / Emergencia",
+    "file": "lib/screens/torch_sos.dart",
+    "severity": "🟡 Media",
+    "category": "Rendimiento",
+    "issue": "`Timer.periodic(const Duration(milliseconds: 30))` con `setState` cada 30ms aunque el estado solo cambia en boundaries del patrón SOS; genera rebuilds innecesarios.",
+    "widget_to_modify": "`_runSos` Timer y setState",
+    "recommendation": "Reemplazar timer periódico por secuencia de `Future.delayed` escalonada (ya existe en parte) llamando `setState` solo en boundaries; usar `ValueListenableBuilder` o estado separado para reducir rebuilds del scaffold completo."
+  },
+  {
+    "screen": "Ajustes",
+    "file": "lib/screens/settings_screen.dart",
+    "severity": "🟡 Media",
+    "category": "Navegación / Consistencia Material3",
+    "issue": "Secciones están bien agrupadas con iconos, pero el tamaño del icono es 18px (pequeño) y no usa `ListTile` leading consistente; además no hay confirmación visible al presionar 'Aplicar filtros' (snackBar solo si hay cambio).",
+    "widget_to_modify": "`_section` Row de icono/título; FilledButton 'Aplicar filtros'",
+    "recommendation": "Aumentar icono a size 22 con padding táctil; mostrar SnackBar 'Filtros aplicados' siempre al presionar el botón; considerar `NavigationBar` lateral o SegmentedButton integrado en sección."
+  },
+  {
+    "screen": "Ajustes",
+    "file": "lib/screens/settings_screen.dart",
+    "severity": "🟢 Baja",
+    "category": "Consistencia Material3",
+    "issue": "Mezcla de estilos: usa `OutlinedButton` para Limpiar DB con color rojo inline, pero Material3 recomienda `FilledButton tonal` para acciones secundarias destructivas.",
+    "widget_to_modify": "OutlinedButton.icon 'Limpiar DB'",
+    "recommendation": "Cambiar a `FilledButton.icon` con `backgroundColor: Theme.of(context).colorScheme.errorContainer` y `foregroundColor: Theme.of(context).colorScheme.onErrorContainer`."
+  },
+  {
+    "screen": "Plan Familiar",
+    "file": "lib/screens/family_plan.dart",
+    "severity": "🟡 Media",
+    "category": "Feedback visual / Accesibilidad",
+    "issue": "Botón 'Estoy bien' usa `PopupMenuButton` con icon send verde; no hay badge ni contador de contactos a los que se envió. El parseo de contactos del TextField multiline es frágil (split por ':') y no valida números.",
+    "widget_to_modify": "PopupMenuButton en ListTile trailing; `_sendMsg`",
+    "recommendation": "Conversión de popup a `showModalBottomSheet` con chips de contactos + método; agregar `Semantics(label: 'Enviar estoy bien por...')`; agregar validación visual de números antes de enviar."
+  },
+  {
+    "screen": "Reportar sismo",
+    "file": "lib/screens/felt_report.dart",
+    "severity": "🟡 Media",
+    "category": "Accesibilidad / Contraste",
+    "issue": "Slider de intensidad sin etiqueta accesible clara ni `Semantics` que anuncie el valor actual; `DropdownButtonFormField` y `TextField` carecen de helper text.",
+    "widget_to_modify": "Slider intensidad; DropdownButtonFormField; TextField daños",
+    "recommendation": "Agregar `Semantics(value: 'Intensidad $_intensity de 5')` al Slider; agregar `helperText` en Dropdown y TextField con formato esperado."
+  },
+  {
+    "screen": "Primeros Auxilios",
+    "file": "lib/screens/first_aid.dart",
+    "severity": "🟢 Baja",
+    "category": "Consistencia / Accesibilidad",
+    "issue": "Pasos usan bullet `•` hardcodeado en lugar de lista semántica; iconos en header son decorativos sin `Semantics`.",
+    "widget_to_modify": "Row bullet en `_section`",
+    "recommendation": "Reemplazar bullet texto por `Icon(Icons.circle, size: 6)` themeado; agregar `Semantics(header: true)` en títulos para TalkBack."
+  },
+  {
+    "screen": "Zonas de riesgo",
+    "file": "lib/screens/risk_zones.dart",
+    "severity": "🟡 Media",
+    "category": "Rendimiento / Mapas",
+    "issue": "`_riskZones` estática con 7 markers; no hay clustering ni optimización, pero el mayor problema es que `AlertDialog` al tap es bloqueante en mapa (cubre 50% del viewport) y no hay feedback de cuál marker fue tocado.",
+    "widget_to_modify": "GestureDetector onTap en Marker; AlertDialog",
+    "recommendation": "Mostrar `BottomSheet` en vez de `AlertDialog` para no bloquear mapa; animar marker con `AnimatedScale` al tap; mantener leyenda en bottom- sheet sincronizada."
+  },
+  {
+    "screen": "General / Theme",
+    "file": "lib/main.dart",
+    "severity": "🟢 Baja",
+    "category": "Contraste / Tema oscuro",
+    "issue": "`ColorScheme.fromSeed(seedColor: Colors.red)` genera paleta roja dominante; en tema oscuro algunos tonos secundarios pueden saturar y no cumplir contraste mínimo sobre fondos oscuros. No se declaran valores legacy/contraste explícitos.",
+    "widget_to_modify": "`ThemeData` en `SismosApp.build()`",
+    "recommendation": "Validar contraste con `DynamicColorBundle`/`ColorScheme.fromSeed` en modo oscuro; si es necesario, overrides manuales de `primaryContainer`, `onPrimaryContainer`, `surfaceVariant`."
+  },
+  {
+    "screen": "General / Cross-cutting",
+    "file": "lib/screens/home.dart",
+    "severity": "🟡 Media",
+    "category": "Accesibilidad",
+    "issue": "Indicador de novedades `Chip` con `onDeleted` no tiene tooltip ni `Semantics(label: '$_newCount nuevos, tap para descartar')`. Varios `IconButton` carecen de `tooltip` consistente.",
+    "widget_to_modify": "Chip badge en AppBar actions",
+    "recommendation": "Agregar `tooltip: '$_newCount nuevos'` y `Semantics` al Chip; auditar todos los IconButton para tooltip estándar."
+  }
+]

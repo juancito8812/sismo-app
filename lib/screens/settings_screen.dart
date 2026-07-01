@@ -313,6 +313,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
     } catch (_) {}
   }
 
+  Future<String> _safeVersionTag(String tag) {
+    final digits = RegExp(r'(\d+(?:\.\d+)*)').firstMatch(tag);
+    if (digits == null) return Future.value('');
+    final parts = digits.group(1)!.split('.');
+    final major = int.tryParse(parts[0]) ?? 0;
+    final minor = parts.length >= 2 ? int.tryParse(parts[1]) ?? 0 : 0;
+    final patch = parts.length >= 3 ? int.tryParse(parts[2]) ?? 0 : 0;
+    return Future.value('$major.$minor.$patch');
+  }
+
   Future<void> _checkForUpdate() async {
     setState(() { _checking = true; _updateInfo = null; _updateUrl = null; });
     try {
@@ -324,27 +334,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
         return;
       }
       final data = jsonDecode(response.body) as Map<String, dynamic>;
-      final tag = data['tag_name'] as String? ?? '';
-      final assets = data['assets'] as List? ?? [];
+      final tag = (data['tag_name'] as String? ?? '').trim();
+      final assets = (data['assets'] as List?) ?? [];
+
       String? apkUrl;
       for (final a in assets) {
-        final name = a['name'] as String? ?? '';
-        if (name.endsWith('.apk')) {
-          apkUrl = a['browser_download_url'] as String?;
+        final name = (a['name'] as String? ?? '').trim();
+        if (name.toLowerCase().endsWith('.apk')) {
+          apkUrl = (a['browser_download_url'] as String?)?.trim() ?? a['browser_download_url'] as String?;
           break;
         }
       }
 
-      // Extraer número de versión del tag (ej: "v13" → 13)
-      final versionNum = int.tryParse(tag.replaceAll(RegExp(r'[^\d]'), ''));
-      if (versionNum != null && versionNum > _buildNumber) {
-        setState(() {
-          _updateInfo = 'Actualización disponible: $tag';
-          _updateUrl = apkUrl;
-        });
-      } else {
-        setState(() => _updateInfo = 'Ya tienes la última versión ($tag)');
+      final remoteVersion = await _safeVersionTag(tag);
+      if (remoteVersion.isEmpty) {
+        setState(() { _checking = false; _updateInfo = 'No se pudo interpretar la versión remota'; });
+        return;
       }
+
+      final currentVersion = await _safeVersionTag(_buildNumber.toString());
+      final next = currentVersion.compareTo(remoteVersion) < 0;
+      setState(() {
+        _updateInfo = next ? 'Actualización disponible: $tag' : 'Ya tienes la última versión ($remoteVersion)';
+        _updateUrl = next ? apkUrl : null;
+        _checking = false;
+      });
     } catch (e) {
       setState(() => _updateInfo = 'Error: $e');
     } finally {
