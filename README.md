@@ -63,10 +63,13 @@ App Android de alertas sísmicas para Venezuela — monitoreo local 100% offline
 ## Descargar
 
 [![Latest Release](https://img.shields.io/github/v/release/juancito8812/sismo-app)](https://github.com/juancito8812/sismo-app/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/juancito8812/sismo-app/total)](https://github.com/juancito8812/sismo-app/releases/latest)
 
 Descarga el APK más reciente desde [GitHub Releases](https://github.com/juancito8812/sismo-app/releases/latest).
 
 > ⚠️ Al ser una release fuera de Google Play, Android puede pedirte activar "Instalar apps de orígenes desconocidos". Aceptalo para instalar.
+
+La app tiene un **actualizador automático**: en Ajustes → Actualizaciones, tocá "Buscar actualización" y descargá la última versión directo.
 
 ## Compilar
 
