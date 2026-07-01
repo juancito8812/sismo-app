@@ -9,141 +9,149 @@ class EmergencyKitScreen extends StatefulWidget {
 }
 
 class _EmergencyKitScreenState extends State<EmergencyKitScreen> {
-  final _items = <_KitItem>[
-    _KitItem('Agua (1 galón por persona/día para 3 días)', 'water'),
-    _KitItem('Comida no perecedera (enlatados, barras, granola)', 'food'),
-    _KitItem('Abrelatas manual', 'opener'),
-    _KitItem('Linterna con pilas extra', 'flashlight'),
-    _KitItem('Radio a baterías o de manivela', 'radio'),
-    _KitItem('Pilas de repuesto', 'batteries'),
-    _KitItem('Botiquín de primeros auxilios', 'firstaid'),
-    _KitItem('Silbato (para pedir ayuda)', 'whistle'),
-    _KitItem('Mascarilla N95 / tapabocas', 'mask'),
-    _KitItem('Cobija térmica / manta', 'blanket'),
-    _KitItem('Cargador portátil / power bank', 'powerbank'),
-    _KitItem('Documentos importantes en bolsa impermeable', 'docs'),
-    _KitItem('Dinero en efectivo (billetes pequeños)', 'cash'),
-    _KitItem('Multiherramienta / navaja', 'tool'),
-    _KitItem('Cinta adhesiva gruesa', 'tape'),
-    _KitItem('Bolsa de basura (10, usos múltiples)', 'bags'),
-    _KitItem('Ropa de cambio y zapatos resistentes', 'clothes'),
-    _KitItem('Medicamentos recetados (7 días)', 'meds'),
-    _KitItem('Toallitas húmedas / gel antibacterial', 'hygiene'),
-    _KitItem('Pito / silbato', 'whistle2'),
+  final _categories = [
+    _KitCategory('Agua y Comida', Icons.restaurant, Colors.blue, [
+      _KitItem('Agua (1 galón por persona/día)', 'water'),
+      _KitItem('Comida no perecedera (enlatados, barras)', 'food'),
+      _KitItem('Abrelatas manual', 'opener'),
+      _KitItem('Platos y cubiertos desechables', 'dishes'),
+    ]),
+    _KitCategory('Seguridad y Herramientas', Icons.build, Colors.orange, [
+      _KitItem('Linterna con pilas extra', 'flashlight'),
+      _KitItem('Radio a baterías o de manivela', 'radio'),
+      _KitItem('Pilas de repuesto', 'batteries'),
+      _KitItem('Silbato', 'whistle'),
+      _KitItem('Multiherramienta / navaja', 'tool'),
+      _KitItem('Encendedor / fósforos en bolsa sellada', 'matches'),
+    ]),
+    _KitCategory('Primeros Auxilios', Icons.medical_services, Colors.red, [
+      _KitItem('Botiquín de primeros auxilios', 'firstaid'),
+      _KitItem('Medicamentos recetados (7 días)', 'meds'),
+      _KitItem('Vendas, gasas, esparadrapo', 'bandages'),
+      _KitItem('Alcohol / antiséptico', 'antiseptic'),
+      _KitItem('Guantes de látex', 'gloves'),
+    ]),
+    _KitCategory('Higiene y Confort', Icons.clean_hands, Colors.teal, [
+      _KitItem('Toallitas húmedas / gel antibacterial', 'wipes'),
+      _KitItem('Bolsa de basura (10+), precinto', 'bags'),
+      _KitItem('Papel higiénico', 'tp'),
+      _KitItem('Ropa de abrigo y frazada', 'blanket'),
+      _KitItem('Cepillo de dientes / pasta', 'hygiene'),
+    ]),
+    _KitCategory('Documentos y Comunicación', Icons.description, Colors.indigo, [
+      _KitItem('Cédula / pasaporte (copia)', 'id'),
+      _KitItem('Dinero en efectivo', 'cash'),
+      _KitItem('Cargador portátil / power bank', 'charger'),
+      _KitItem('Lista de contactos de emergencia', 'contacts'),
+      _KitItem('Mapa de la zona / rutas de evacuación', 'map'),
+    ]),
   ];
+
+  final _checked = <String>{};
 
   @override
   void initState() {
     super.initState();
-    _loadState();
+    _load();
   }
 
-  Future<void> _loadState() async {
+  Future<void> _load() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() => _checked.addAll(prefs.getStringList('kit_checked') ?? []));
+  }
+
+  Future<void> _toggle(String key) async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
-      for (final item in _items) {
-        item.checked = prefs.getBool('kit_${item.key}') ?? false;
-      }
+      if (_checked.contains(key)) { _checked.remove(key); } else { _checked.add(key); }
     });
-  }
-
-  Future<void> _toggle(_KitItem item) async {
-    setState(() => item.checked = !item.checked);
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('kit_${item.key}', item.checked);
-  }
-
-  Future<void> _resetAll() async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Reiniciar checklist'),
-        content: const Text('¿Marcar todo como pendiente?'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Reiniciar')),
-        ],
-      ),
-    );
-    if (confirm != true) return;
-    final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      for (final item in _items) {
-        item.checked = false;
-        prefs.setBool('kit_${item.key}', false);
-      }
-    });
+    await prefs.setStringList('kit_checked', _checked.toList());
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final checkedCount = _items.where((i) => i.checked).length;
-    final progress = checkedCount / _items.length;
+    final total = _categories.fold(0, (s, c) => s + c.items.length);
+    final done = _checked.length;
+    final progress = total > 0 ? done / total : 0.0;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Kit de emergencia'),
         backgroundColor: theme.colorScheme.inversePrimary,
-        actions: [
-          IconButton(icon: const Icon(Icons.refresh), tooltip: 'Reiniciar', onPressed: _resetAll),
-        ],
       ),
-      body: Column(
+      body: ListView(
+        padding: const EdgeInsets.all(12),
         children: [
           // Barra de progreso
-          Container(
-            padding: const EdgeInsets.all(12),
-            color: theme.colorScheme.surfaceContainerHighest,
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text('Progreso', style: theme.textTheme.bodyMedium),
-                    Text('$checkedCount / ${_items.length}', style: theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.bold)),
-                  ],
-                ),
+                Row(children: [
+                  const Icon(Icons.inventory_2, size: 18, color: Colors.blue),
+                  const SizedBox(width: 6),
+                  Text('Progreso: $done/$total ítems', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                ]),
                 const SizedBox(height: 6),
                 ClipRRect(
                   borderRadius: BorderRadius.circular(8),
-                  child: LinearProgressIndicator(
-                    value: progress,
-                    minHeight: 10,
-                    backgroundColor: theme.colorScheme.surfaceContainerHighest,
-                    valueColor: AlwaysStoppedAnimation(
-                      progress >= 1.0 ? Colors.green : theme.colorScheme.primary,
-                    ),
-                  ),
+                  child: LinearProgressIndicator(value: progress, minHeight: 10,
+                    backgroundColor: Colors.grey.shade200,
+                    valueColor: AlwaysStoppedAnimation(progress == 1.0 ? Colors.green : Colors.blue)),
                 ),
               ],
             ),
           ),
-          // Lista
-          Expanded(
-            child: ListView.builder(
-              itemCount: _items.length,
-              itemBuilder: (context, index) {
-                final item = _items[index];
-                return CheckboxListTile(
-                  title: Text(item.label, style: const TextStyle(fontSize: 14)),
-                  value: item.checked,
-                  onChanged: (_) => _toggle(item),
-                  activeColor: Colors.green,
-                  dense: true,
-                );
-              },
+          // Categorías
+          for (final cat in _categories) ...[
+            Card(
+              margin: const EdgeInsets.symmetric(vertical: 4),
+              child: Padding(
+                padding: const EdgeInsets.all(8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(children: [
+                      Icon(cat.icon, size: 18, color: cat.color),
+                      const SizedBox(width: 6),
+                      Text(cat.name, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: cat.color)),
+                      const Spacer(),
+                      Text('${_checked.where((k) => cat.items.any((i) => i.key == k)).length}/${cat.items.length}',
+                        style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                    ]),
+                    const Divider(height: 8),
+                    ...cat.items.map((item) => CheckboxListTile(
+                      value: _checked.contains(item.key),
+                      onChanged: (_) => _toggle(item.key),
+                      title: Text(item.label, style: const TextStyle(fontSize: 13)),
+                      dense: true,
+                      controlAffinity: ListTileControlAffinity.leading,
+                      visualDensity: VisualDensity.compact,
+                    )),
+                  ],
+                ),
+              ),
             ),
-          ),
+          ],
+          const SizedBox(height: 32),
         ],
       ),
     );
   }
 }
 
+class _KitCategory {
+  final String name;
+  final IconData icon;
+  final Color color;
+  final List<_KitItem> items;
+  const _KitCategory(this.name, this.icon, this.color, this.items);
+}
+
 class _KitItem {
   final String label;
   final String key;
-  bool checked = false;
-  _KitItem(this.label, this.key);
+  const _KitItem(this.label, this.key);
 }

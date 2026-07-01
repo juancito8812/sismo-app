@@ -219,7 +219,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildFilterBar(ThemeData theme) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       color: theme.colorScheme.surfaceContainerHighest,
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
@@ -229,12 +229,12 @@ class _HomeScreenState extends State<HomeScreen> {
               setState(() => _minMag = _minMag > 0 ? 0 : 3);
               _refresh();
             }),
-            const SizedBox(width: 6),
-            _filterChip(['Todo', '24h', '7d', '30d'][_dateRange], _dateRange > 0, () {
+            const SizedBox(width: 8),
+            _filterChip(['Todo', 'Últ. 24h', 'Últ. 7d', 'Últ. 30d'][_dateRange], _dateRange > 0, () {
               setState(() => _dateRange = _dateRange > 0 ? 0 : 1);
               _refresh();
             }),
-            const SizedBox(width: 6),
+            const SizedBox(width: 8),
             _filterChip(_source, _source != 'Todas', () {
               setState(() => _source = _source == 'Todas' ? 'USGS' : 'Todas');
               _refresh();
@@ -247,9 +247,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _filterChip(String label, bool active, VoidCallback onTap) {
     return FilterChip(
-      label: Text(label, style: const TextStyle(fontSize: 12)),
-      selected: active, onSelected: (_) => onTap(),
-      visualDensity: VisualDensity.compact,
+      label: Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+      selected: active,
+      onSelected: (_) => onTap(),
+      visualDensity: VisualDensity.comfortable,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
     );
   }
 
