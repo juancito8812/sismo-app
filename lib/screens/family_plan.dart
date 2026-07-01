@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class FamilyPlanScreen extends StatefulWidget {
   const FamilyPlanScreen({super.key});
@@ -176,27 +177,34 @@ class _FamilyPlanScreenState extends State<FamilyPlanScreen> {
           ),
           const SizedBox(height: 12),
 
-          // Botón "Estoy bien" (simulado)
+          // Botón "Estoy bien" — real via SMS/WhatsApp
           Card(
             color: Colors.green.shade50,
             child: ListTile(
               leading: const Icon(Icons.check_circle, color: Colors.green, size: 36),
               title: const Text('Estoy bien', style: TextStyle(fontWeight: FontWeight.bold)),
-              subtitle: const Text('Simula notificar a tu familia'),
-              trailing: ElevatedButton(
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Row(children: [
-                        Icon(Icons.check_circle, color: Colors.white),
-                        SizedBox(width: 8),
-                        Text('Notificación enviada (simulada)'),
-                      ]),
-                    ),
+              subtitle: const Text('Notifica a tus contactos'),
+              trailing: PopupMenuButton<String>(
+                icon: const Icon(Icons.send, color: Colors.green),
+                onSelected: (method) {
+                  final msg = '¡Estoy bien! 🙏 SismoVE - Sismo detectado. ¿Todos bien?';
+                  final contactList = _contactCtrl.text;
+                  for (final line in contactList.split('\n')) {
+                    final parts = line.split(':');
+                    if (parts.length >= 2) {
+                      final num = parts.sublist(1).join(':').trim();
+                      if (method == 'sms') _sendMsg('sms', num, msg);
+                      else _sendMsg('wa', num, msg);
+                    }
+                  }
+                  if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Enviado por ${method == 'sms' ? 'SMS' : 'WhatsApp'}')),
                   );
                 },
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-                child: const Text('Enviar', style: TextStyle(color: Colors.white)),
+                itemBuilder: (_) => [
+                  const PopupMenuItem(value: 'sms', child: ListTile(leading: Icon(Icons.sms), title: Text('SMS'), dense: true)),
+                  const PopupMenuItem(value: 'wa', child: ListTile(leading: Icon(Icons.chat), title: Text('WhatsApp'), dense: true)),
+                ],
               ),
             ),
           ),
@@ -204,5 +212,14 @@ class _FamilyPlanScreenState extends State<FamilyPlanScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> _sendMsg(String type, String number, String text) async {
+    final clean = number.replaceAll(RegExp(r'[^\d+]'), '');
+    if (clean.isEmpty) return;
+    final uri = type == 'sms'
+        ? Uri.parse('sms:$clean?body=${Uri.encodeComponent(text)}')
+        : Uri.parse('https://wa.me/$clean?text=${Uri.encodeComponent(text)}');
+    if (await canLaunchUrl(uri)) await launchUrl(uri);
   }
 }

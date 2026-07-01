@@ -160,27 +160,45 @@ class _HomeScreenState extends State<HomeScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       color: Colors.red.shade50,
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: [
-            _prepButton(Icons.healing, 'Guía', () => _openPage(const SafetyGuideScreen())),
-            const SizedBox(width: 8),
-            _prepButton(Icons.emergency, 'Kit', () => _openPage(const EmergencyKitScreen())),
-            const SizedBox(width: 8),
-            _prepButton(Icons.phone, 'Contactos', () => _openPage(const EmergencyContactsScreen())),
-            const SizedBox(width: 8),
-            _prepButton(Icons.flash_on, 'SOS', () => _openPage(const TorchSosScreen())),
-            const SizedBox(width: 8),
-            _prepButton(Icons.people, 'Familia', () => _openPage(const FamilyPlanScreen())),
-            const SizedBox(width: 8),
-            _prepButton(Icons.report, 'Reportar', () => _openPage(const FeltReportScreen())),
-            const SizedBox(width: 8),
-            _prepButton(Icons.medical_services, 'Auxilios', () => _openPage(const FirstAidScreen())),
-            const SizedBox(width: 8),
-            _prepButton(Icons.map, 'Riesgo', () => _openPage(const RiskZonesScreen())),
-          ],
-        ),
+      child: Column(
+        children: [
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                Text(' 📡 ', style: TextStyle(fontSize: 11, color: Colors.red.shade800)),
+                _prepButton(Icons.map, 'Mapa', () => _openPage(const MapScreen())),
+                const SizedBox(width: 6),
+                _prepButton(Icons.settings, 'Ajustes', () => _openSettings()),
+                const SizedBox(width: 6),
+                Text(' 🧰 ', style: TextStyle(fontSize: 11, color: Colors.red.shade800)),
+                _prepButton(Icons.healing, 'Guía', () => _openPage(const SafetyGuideScreen())),
+                const SizedBox(width: 6),
+                _prepButton(Icons.emergency, 'Kit', () => _openPage(const EmergencyKitScreen())),
+                const SizedBox(width: 6),
+                _prepButton(Icons.phone, 'Contactos', () => _openPage(const EmergencyContactsScreen())),
+                const SizedBox(width: 6),
+                _prepButton(Icons.flash_on, 'SOS', () => _openPage(const TorchSosScreen())),
+              ],
+            ),
+          ),
+          const SizedBox(height: 4),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                const SizedBox(width: 30),
+                _prepButton(Icons.people, 'Familia', () => _openPage(const FamilyPlanScreen())),
+                const SizedBox(width: 6),
+                _prepButton(Icons.report, 'Reportar', () => _openPage(const FeltReportScreen())),
+                const SizedBox(width: 6),
+                _prepButton(Icons.medical_services, 'Auxilios', () => _openPage(const FirstAidScreen())),
+                const SizedBox(width: 6),
+                _prepButton(Icons.map, 'Riesgo', () => _openPage(const RiskZonesScreen())),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
