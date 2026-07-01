@@ -48,9 +48,7 @@ class _TorchSosScreenState extends State<TorchSosScreen> with WidgetsBindingObse
 
   Future<void> _initAudio() async {
     try {
-      await _player.setSourceUrl(
-        'https://www.soundjay.com/misc/sounds/bell-ringing-05.mp3',
-      );
+      await _player.setSource(AssetSource('sounds/sos_beep.wav'));
       await _player.setVolume(1.0);
       _audioOk = true;
     } catch (_) {

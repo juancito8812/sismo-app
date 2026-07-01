@@ -7,15 +7,8 @@ class EarthquakeRepository {
       'https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&minlatitude=-5&maxlatitude=15&minlongitude=-75&maxlongitude=-60&minmagnitude=2.5&orderby=time';
 
   Future<List<Earthquake>> fetchRecent() async {
-    final futures = await Future.wait([
-      _fetchFromUsgs(),
-      _scrapeFunvisis(),
-      _scrapeCima(),
-    ]);
-
-    final combined = <Earthquake>{...futures[0], ...futures[1], ...futures[2]}.toList();
-    combined.sort((a, b) => b.time.compareTo(a.time));
-    return combined;
+    final events = await _fetchFromUsgs();
+    return events.toList()..sort((a, b) => b.time.compareTo(a.time));
   }
 
   Future<Set<Earthquake>> _fetchFromUsgs() async {
@@ -33,22 +26,17 @@ class EarthquakeRepository {
           if (_inVenezuelaArea(eq.latitude, eq.longitude)) {
             out.add(eq);
           }
-        } catch (_) {}
+        } catch (e) {
+          // ignore: avoid_print
+          print('[repository] skip malformed feature: $e');
+        }
       }
       return out;
-    } catch (_) {
+    } catch (e) {
+      // ignore: avoid_print
+      print('[repository] USGS fetch error: $e');
       return {};
     }
-  }
-
-  Future<Set<Earthquake>> _scrapeFunvisis() async {
-    // FUNVISIS no expone datos sísmicos estructurados.
-    return {};
-  }
-
-  Future<Set<Earthquake>> _scrapeCima() async {
-    // CIMA no tiene datos sísmicos públicos estructurados.
-    return {};
   }
 
   /// Seed histórico: descarga eventos USGS Venezuela desde una fecha

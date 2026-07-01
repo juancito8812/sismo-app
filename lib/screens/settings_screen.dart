@@ -4,11 +4,15 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:csv/csv.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:http/http.dart' as http;
+import 'package:package_info_plus/package_info_plus.dart';
+import 'package:workmanager/workmanager.dart';
 import '../data/earthquake.dart';
 import '../data/local_db.dart';
 import '../data/repository.dart';
+import '../services/background_poller.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -87,6 +91,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           Slider(
             value: _pollInterval.toDouble(), min: 5, max: 60, divisions: 11,
             label: '$_pollInterval min',
+            onChangeEnd: (v) => _savePollInterval(v.round()),
             onChanged: (v) => setState(() => _pollInterval = v.round()),
           ),
           const SizedBox(height: 24),
@@ -292,7 +297,47 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  int get _buildNumber => 13;
+  int get _buildNumber {
+    // ponytail: leer de PackageInfo si ya se cargó
+    if (_pkg != null) return int.tryParse(_pkg!.buildNumber) ?? 0;
+    return 0;
+  }
+
+  PackageInfo? _pkg;
+
+  Future<void> _loadPackageInfo() async {
+    _pkg = await PackageInfo.fromPlatform();
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPackageInfo();
+    _loadPollInterval();
+  }
+
+  Future<void> _loadPollInterval() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() => _pollInterval = prefs.getInt('poll_interval') ?? 15);
+  }
+
+  Future<void> _savePollInterval(int minutes) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('poll_interval', minutes);
+    // Re-registrar Workmanager con nuevo intervalo
+    try {
+      await Workmanager().cancelAll();
+      await Workmanager().registerPeriodicTask(
+        'sismos.background', kBackgroundChannel,
+        frequency: Duration(minutes: minutes),
+        constraints: Constraints(
+          networkType: NetworkType.connected,
+          requiresBatteryNotLow: true,
+        ),
+      );
+    } catch (_) {}
+  }
 
   Future<void> _checkForUpdate() async {
     setState(() { _checking = true; _updateInfo = null; _updateUrl = null; });

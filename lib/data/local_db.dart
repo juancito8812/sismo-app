@@ -39,6 +39,9 @@ class LocalDb {
           )
         ''');
       },
+      onUpgrade: (db, oldVersion, newVersion) async {
+        if (oldVersion < 1) { /* schema v1 inicial */ }
+      },
     );
   }
 

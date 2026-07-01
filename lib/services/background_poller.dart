@@ -41,7 +41,7 @@ Future<void> _checkAndNotify() async {
     final alreadyNotified = !unNotifiedIds.contains(eq.id);
     if (!alreadyNotified && eq.magnitude >= 3) {
       await notifier.showSismoAlert(
-        id: eq.id.hashCode,
+        id: eq.id.hashCode & 0x7FFFFFFF,
         title: 'Sismo detectado M${eq.magnitude.toStringAsFixed(1)}',
         body: eq.place,
       );
