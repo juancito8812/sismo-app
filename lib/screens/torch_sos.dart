@@ -18,26 +18,32 @@ class _TorchSosScreenState extends State<TorchSosScreen> with WidgetsBindingObse
   Timer? _sosTimer;
   int _sosStep = 0;
   final _player = AudioPlayer();
-  bool _audioInitialized = false;
+  bool _audioOk = false;
+  bool _torchOk = false;
+  bool _torchChecked = false;
 
-  // Patrón SOS: 3 cortos, 3 largos, 3 cortos
   static const _sosPatternMs = [
-    200, 200, // S dot 1
-    200, 200, // S dot 2
-    200, 600, // S dot 3 + pause
-    600, 200, // O dash 1
-    600, 200, // O dash 2
-    600, 600, // O dash 3 + pause
-    200, 200, // S dot 1
-    200, 200, // S dot 2
-    200, 200, // S dot 3
+    200, 200, 200, 200, 200, 600, // S
+    600, 200, 600, 200, 600, 600, // O
+    200, 200, 200, 200, 200, 200, // S
   ];
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _checkTorch();
     _initAudio();
+  }
+
+  Future<void> _checkTorch() async {
+    try {
+      await TorchLight.enableTorch();
+      await TorchLight.disableTorch();
+      if (mounted) setState(() { _torchOk = true; _torchChecked = true; });
+    } catch (_) {
+      if (mounted) setState(() { _torchOk = false; _torchChecked = true; });
+    }
   }
 
   Future<void> _initAudio() async {
@@ -46,9 +52,9 @@ class _TorchSosScreenState extends State<TorchSosScreen> with WidgetsBindingObse
         'https://www.soundjay.com/misc/sounds/bell-ringing-05.mp3',
       );
       await _player.setVolume(1.0);
-      _audioInitialized = true;
+      _audioOk = true;
     } catch (_) {
-      _audioInitialized = false;
+      _audioOk = false;
     }
   }
 
@@ -57,85 +63,69 @@ class _TorchSosScreenState extends State<TorchSosScreen> with WidgetsBindingObse
     WidgetsBinding.instance.removeObserver(this);
     _sosTimer?.cancel();
     _player.dispose();
-    _torchOff();
+    _torchSet(false);
     super.dispose();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.paused) {
-      _stopSos();
-    }
+    if (state == AppLifecycleState.paused) _stopSos();
   }
 
-  Future<void> _torchOn() async {
+  Future<void> _torchSet(bool on) async {
+    if (!_torchOk) return;
     try {
-      await TorchLight.enableTorch();
-    } catch (_) {
-      // Flash no disponible en este dispositivo
-    }
-  }
-
-  Future<void> _torchOff() async {
-    try {
-      await TorchLight.disableTorch();
+      if (on) await TorchLight.enableTorch();
+      else await TorchLight.disableTorch();
     } catch (_) {}
   }
 
   Future<void> _playBeep() async {
-    if (!_audioInitialized) return;
-    try {
-      await _player.stop();
-      await _player.seek(Duration.zero);
-      await _player.resume();
-    } catch (_) {}
+    if (!_audioOk) return;
+    try { await _player.stop(); await _player.seek(Duration.zero); await _player.resume(); }
+    catch (_) {}
   }
 
   Future<void> _stopBeep() async {
-    try {
-      await _player.pause();
-    } catch (_) {}
+    try { await _player.pause(); } catch (_) {}
+  }
+
+  void _vibrate() {
+    HapticFeedback.heavyImpact();
   }
 
   void _toggleSos() {
-    if (_isSos) {
-      _stopSos();
-    } else {
-      _startSos();
-    }
+    if (_isSos) _stopSos();
+    else _startSos();
   }
 
-  Future<void> _startSos() async {
+  void _startSos() {
     setState(() => _isSos = true);
-    await _torchOn();
+    _torchSet(true);
     _sosStep = 0;
     _runSos();
   }
 
   void _runSos() {
     _sosTimer?.cancel();
-    _sosTimer = Timer.periodic(const Duration(milliseconds: 50), (timer) {
-      if (!mounted || !_isSos) {
-        timer.cancel();
-        return;
-      }
+    _sosTimer = Timer.periodic(const Duration(milliseconds: 30), (timer) {
+      if (!mounted || !_isSos) { timer.cancel(); return; }
 
       if (_sosStep < _sosPatternMs.length) {
         final isOn = _sosStep.isEven;
         final duration = _sosPatternMs[_sosStep];
 
         if (isOn) {
-          _torchOn();
+          _torchSet(true);
           _playBeep();
+          _vibrate();
         } else {
-          _torchOff();
+          _torchSet(false);
           _stopBeep();
         }
 
         setState(() => _isTorch = isOn);
         _sosStep++;
-
-        // Ajustar próxima ejecución basado en la duración
         timer.cancel();
         Future.delayed(Duration(milliseconds: duration), _runSos);
       } else {
@@ -147,7 +137,7 @@ class _TorchSosScreenState extends State<TorchSosScreen> with WidgetsBindingObse
 
   Future<void> _stopSos() async {
     _sosTimer?.cancel();
-    await _torchOff();
+    await _torchSet(false);
     await _stopBeep();
     if (mounted) setState(() { _isSos = false; _isTorch = false; });
   }
@@ -155,7 +145,6 @@ class _TorchSosScreenState extends State<TorchSosScreen> with WidgetsBindingObse
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-
     SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
       statusBarIconBrightness: _isTorch ? Brightness.dark : Brightness.light,
@@ -174,26 +163,46 @@ class _TorchSosScreenState extends State<TorchSosScreen> with WidgetsBindingObse
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             if (!_isTorch) ...[
-              const Icon(Icons.flashlight_on, size: 80, color: Colors.amber),
+              const Icon(Icons.flashlight_on, size: 72, color: Colors.amber),
+              const SizedBox(height: 12),
+              const Text('Flash LED + Vibración + Sonido', style: TextStyle(fontSize: 16)),
+              const Text('Parpadeo SOS ··· −−− ···', style: TextStyle(fontSize: 16)),
               const SizedBox(height: 16),
-              const Text('Flash LED + pantalla blanca', style: TextStyle(fontSize: 16)),
-              const Text('Sonido de alarma + vibración', style: TextStyle(fontSize: 16)),
-              const Text('Parpadeo SOS automático', style: TextStyle(fontSize: 16)),
-              const SizedBox(height: 32),
+              // Estado de dispositivos
+              if (_torchChecked)
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    _statusChip('Flash', _torchOk),
+                    const SizedBox(width: 8),
+                    _statusChip('Sonido', _audioOk),
+                    const SizedBox(width: 8),
+                    _statusChip('Vibración', true),
+                  ],
+                ),
+              if (!_torchOk && _torchChecked)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text('Flash no disponible en este dispositivo\nSe usará pantalla blanca + vibración',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 12, color: Colors.orange.shade700)),
+                ),
+              const SizedBox(height: 24),
             ],
             if (_isTorch) ...[
               const Text('S O S', style: TextStyle(fontSize: 72, fontWeight: FontWeight.bold, letterSpacing: 16)),
               const SizedBox(height: 8),
-              const Text('ENVIANDO SEÑAL', style: TextStyle(fontSize: 20, letterSpacing: 4)),
-              const SizedBox(height: 32),
-              const Icon(Icons.hearing, size: 48),
+              const Text('SEÑAL DE AUXILIO', style: TextStyle(fontSize: 20, letterSpacing: 4)),
+              const SizedBox(height: 24),
+              Icon(Icons.hearing, size: 48, color: _torchOk ? Colors.red : Colors.orange),
               const SizedBox(height: 8),
-              const Text('Flash + Sonido activos', style: TextStyle(fontSize: 14)),
+              Text(
+                _torchOk ? 'Flash LED + Vibración + Sonido' : 'Pantalla blanca + Vibración',
+                style: TextStyle(fontSize: 14, color: _torchOk ? Colors.black87 : Colors.orange.shade700)),
             ],
             const SizedBox(height: 24),
             SizedBox(
-              width: 200,
-              height: 64,
+              width: 200, height: 64,
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: _isSos ? Colors.red : Colors.amber,
@@ -214,11 +223,29 @@ class _TorchSosScreenState extends State<TorchSosScreen> with WidgetsBindingObse
             ),
             const SizedBox(height: 24),
             if (!_isTorch)
-              Text('El modo SOS parpadea el flash LED\ny emite sonido en código Morse: ··· −−− ···',
-                textAlign: TextAlign.center,
-                style: theme.textTheme.bodySmall),
+              Text('Al activar: flash LED parpadea en código Morse\n+ vibración + sonido de alarma',
+                textAlign: TextAlign.center, style: theme.textTheme.bodySmall),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _statusChip(String label, bool ok) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: ok ? Colors.green.shade50 : Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: ok ? Colors.green : Colors.grey.shade300),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(ok ? Icons.check_circle : Icons.cancel, size: 14, color: ok ? Colors.green : Colors.grey),
+          const SizedBox(width: 4),
+          Text(label, style: TextStyle(fontSize: 12, color: ok ? Colors.green.shade800 : Colors.grey.shade600)),
+        ],
       ),
     );
   }
