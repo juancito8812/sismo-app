@@ -5,7 +5,6 @@ import '../services/notification_service.dart';
 
 const kBackgroundChannel = 'sismos.background';
 
-// Dispatcher de WorkManager (debe ser top-level)
 @pragma('vm:entry-point')
 void callbackDispatcher() {
   Workmanager().executeTask((task, inputData) async {
@@ -13,8 +12,6 @@ void callbackDispatcher() {
       try {
         await _checkAndNotify();
       } catch (e) {
-        // evitar crash en background
-        // ignore: avoid_print
         print('[background_poller] error: $e');
       }
       return Future.value(true);
@@ -30,20 +27,25 @@ Future<void> _checkAndNotify() async {
   await notifier.init();
 
   final events = await repo.fetchRecent();
-  final saved = await db.recent();
+  final unnotifiedIds = await _unnotifiedIds(db);
 
-  final unNotifiedIds =
-      saved.where((e) => e.notified == 0).map((e) => e.id).toSet();
   for (var eq in events) {
-    final alreadyNotified = !unNotifiedIds.contains(eq.id);
-    if (!alreadyNotified && eq.magnitude >= 3) {
+    if (unnotifiedIds.contains(eq.id) && eq.magnitude >= 3) {
       await notifier.showSismoAlert(
         id: eq.id.hashCode & 0x7FFFFFFF,
         title: 'Sismo detectado M${eq.magnitude.toStringAsFixed(1)}',
         body: eq.place,
       );
       await db.markNotified(eq.id);
+      unnotifiedIds.remove(eq.id);
     }
     await db.insertOrUpdate(eq);
   }
+}
+
+Future<Set<String>> _unnotifiedIds(LocalDb db) async {
+  final rows = await db.database.rawQuery(
+    'SELECT id FROM events WHERE notified = 0',
+  );
+  return rows.map((r) => r['id'] as String).toSet();
 }

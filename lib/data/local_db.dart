@@ -55,6 +55,15 @@ class LocalDb {
 
   Future<void> insertOrUpdate(Earthquake event) async {
     final db = await database;
+    final existing = await db.query(
+      'events',
+      where: 'id = ?',
+      whereArgs: [event.id],
+    );
+    final currentNotified = existing.isNotEmpty
+        ? (existing.first['notified'] as int? ?? 0)
+        : 0;
+
     await db.insert(
       'events',
       {
@@ -66,7 +75,7 @@ class LocalDb {
         'longitude': event.longitude,
         'depth_km': event.depthKm,
         'source': event.source,
-        'notified': event.notified,
+        'notified': currentNotified,
       },
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
