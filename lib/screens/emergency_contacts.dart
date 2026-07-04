@@ -13,6 +13,7 @@ class EmergencyContactsScreen extends StatefulWidget {
 class _EmergencyContactsScreenState extends State<EmergencyContactsScreen> {
   List<_Contact> _customContacts = [];
   bool _loading = false;
+  String? _formError;
 
   static const _presetContacts = [
     _Contact('Protección Civil', '911', Icons.local_police, Colors.red, true),
@@ -45,6 +46,7 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen> {
         final parts = e.split('|');
         return _Contact(parts[0], parts.length > 1 ? parts[1] : '', Icons.person, Colors.blueGrey, false);
       }).toList();
+      _formError = null;
     });
   }
 
@@ -55,6 +57,7 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen> {
   }
 
   Future<void> _pickContact() async {
+    _formError = null;
     if (!await FlutterContacts.requestPermission()) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Permiso denegado para acceder a contactos')));
@@ -69,6 +72,11 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen> {
           _customContacts.add(_Contact(contact.displayName, phone, Icons.person, Colors.blueGrey, false));
         });
         _saveCustom();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Contacto guardado: ${contact.displayName}')),
+          );
+        }
       }
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(
@@ -81,24 +89,30 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen> {
   Future<void> _removeContact(int index) async {
     setState(() => _customContacts.removeAt(index));
     _saveCustom();
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Contacto eliminado')),
+      );
+    }
   }
 
   Future<void> _sendSms(String number, String message) async {
     final clean = number.replaceAll(RegExp(r'[^\d+]'), '');
     if (clean.isEmpty) return;
     final uri = Uri.parse('sms:$clean?body=${Uri.encodeComponent(message)}');
-    if (!uri.hasEmptyPath && await canLaunchUrl(uri)) {
+    if (await canLaunchUrl(uri)) {
       await launchUrl(uri);
     } else if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No se encontró app SMS para enviar el mensaje')));    }
+        const SnackBar(content: Text('No se encontró app SMS para enviar el mensaje')));
+    }
   }
 
   Future<void> _sendWhatsApp(String number, String message) async {
     final clean = number.replaceAll(RegExp(r'[^\d+]'), '');
     if (clean.isEmpty) return;
     final uri = Uri.parse('https://wa.me/$clean?text=${Uri.encodeComponent(message)}');
-    if (!uri.hasEmptyPath && await canLaunchUrl(uri)) {
+    if (await canLaunchUrl(uri)) {
       await launchUrl(uri);
     } else if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -213,13 +227,18 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen> {
         ],
       ),
       body: ListView(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
         children: [
+          if (_formError != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Text(_formError!, style: TextStyle(color: theme.colorScheme.error)),
+            ),
           // Mensajes rápidos — acceso directo
           Card(
-            color: Colors.blue.shade50,
+            color: theme.colorScheme.secondaryContainer,
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -230,7 +249,8 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen> {
                   ]),
                   const SizedBox(height: 6),
                   Wrap(
-                    spacing: 6, runSpacing: 4,
+                    spacing: 6,
+                    runSpacing: 6,
                     children: _quickMessages.map((msg) => ActionChip(
                       label: Text(msg, style: const TextStyle(fontSize: 11)),
                       onPressed: () => _showSendPicker(context, '', msg),
@@ -241,22 +261,29 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen> {
               ),
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
 
           // Contactos preseleccionados (Venezuela)
+          Text('Emergencias', style: theme.textTheme.titleSmall),
+          const SizedBox(height: 6),
           ..._presetContacts.map((c) => _contactTile(c)),
 
-          // Contactos personalizados
+          const SizedBox(height: 12),
+
           if (_customContacts.isNotEmpty) ...[
-            const Padding(
-              padding: EdgeInsets.only(top: 8, bottom: 4),
-              child: Text('Mis contactos', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+            Row(
+              children: [
+                const Icon(Icons.people_alt_rounded, size: 18, color: Colors.blueGrey),
+                const SizedBox(width: 8),
+                Text('Mis contactos', style: theme.textTheme.titleSmall),
+              ],
             ),
+            const SizedBox(height: 6),
             for (var i = 0; i < _customContacts.length; i++)
               _contactTile(_customContacts[i], onRemove: () => _removeContact(i)),
           ],
 
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
         ],
       ),
     );

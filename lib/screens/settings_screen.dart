@@ -49,11 +49,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
         padding: const EdgeInsets.all(16),
         children: [
           _section(theme, Icons.filter_alt, 'Filtros', [
-            Text('Magnitud mínima: M${_minMagnitude.toStringAsFixed(1)}'),
+            Text('Magnitud mínima: M${_minMagnitude.toStringAsFixed(1)}', style: theme.textTheme.bodyMedium),
             Slider(value: _minMagnitude, min: 1.0, max: 8.0, divisions: 14,
               label: 'M${_minMagnitude.toStringAsFixed(1)}',
               onChanged: (v) => setState(() => _minMagnitude = v)),
-            Text('Período'),
+            Text('Ignora eventos menores a esta magnitud.', style: theme.textTheme.bodySmall),
+            const SizedBox(height: 8),
+            Text('Período', style: theme.textTheme.bodyMedium),
             SegmentedButton<int>(
               segments: const [
                 ButtonSegment(value: 0, label: Text('Todo')),
@@ -64,9 +66,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
               selected: {_dateFilter},
               onSelectionChanged: (v) => setState(() => _dateFilter = v.first),
             ),
+            const SizedBox(height: 8),
             DropdownButtonFormField<String>(
               value: _sourceFilter,
-              decoration: const InputDecoration(labelText: 'Fuente', border: OutlineInputBorder()),
+              decoration: InputDecoration(
+                labelText: 'Fuente',
+                helperText: 'Fuente de datos símicos.',
+                border: const OutlineInputBorder(),
+              ),
               items: _sources.map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
               onChanged: (v) => setState(() => _sourceFilter = v ?? 'Todas'),
             ),
@@ -76,15 +83,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
               icon: const Icon(Icons.filter_alt), label: const Text('Aplicar filtros')),
           ]),
 
+          const SizedBox(height: 16),
+
           _section(theme, Icons.sync, 'Background', [
-            Text('Intervalo de polling: $_pollInterval min'),
+            Text('Intervalo de polling: $_pollInterval min', style: theme.textTheme.bodyMedium),
             Slider(value: _pollInterval.toDouble(), min: 5, max: 60, divisions: 11,
               label: '$_pollInterval min',
               onChangeEnd: (v) => _savePollInterval(v.round()),
               onChanged: (v) => setState(() => _pollInterval = v.round())),
+            Text('Busca actualizaciones en segundo plano cada cierto tiempo.', style: theme.textTheme.bodySmall),
           ]),
 
-          _section(theme, Icons.storage, 'Datos', [
+          const SizedBox(height: 16),
+
+          _section(theme, Icons.storage, 'Datos y almacenamiento', [
             if (_exportPath != null)
               Card(color: Colors.green.shade50, child: ListTile(
                 leading: const Icon(Icons.check_circle, color: Colors.green),
@@ -112,13 +124,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 label: Text('Limpiar DB', style: TextStyle(color: _clearing ? null : Colors.red)))),
             ]),
             const SizedBox(height: 8),
-            FilledButton.icon(
+            OutlinedButton.icon(
               onPressed: _seeding ? null : _seedHistorical,
               icon: _seeding
                   ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
                   : const Icon(Icons.cloud_download),
               label: Text(_seeding ? 'Descargando...' : 'Seed datos históricos (2026)')),
           ]),
+
+          const SizedBox(height: 16),
 
           _section(theme, Icons.system_update, 'Actualizaciones', [
             if (_updateInfo != null)
@@ -141,7 +155,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               label: Text(_checking ? 'Buscando...' : 'Buscar actualización')),
             const SizedBox(height: 8),
             Center(child: Text('Versión: 1.0.0 (build ${_buildNumber})',
-              style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant))),
+              style: theme.textTheme.bodySmall)),
           ]),
         ],
       ),
@@ -150,9 +164,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Widget _section(ThemeData theme, IconData icon, String title, List<Widget> children) {
     return Card(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: 0),
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -161,12 +175,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
               const SizedBox(width: 8),
               Text(title, style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
             ]),
-            const Divider(),
+            const SizedBox(height: 4),
+            Text(_sectionSubtitle(title), style: theme.textTheme.bodySmall),
+            const SizedBox(height: 10),
             ...children,
           ],
         ),
       ),
     );
+  }
+
+  String _sectionSubtitle(String title) {
+    switch (title) {
+      case 'Filtros':
+        return 'Ajusta qué eventos se muestran en la app.';
+      case 'Background':
+        return 'Controla la frecuencia de actualización en segundo plano.';
+      case 'Datos y almacenamiento':
+        return 'Exporta, descarga historial o limpia datos.';
+      case 'Actualizaciones':
+        return 'Verifica si existe una versión nueva disponible.';
+      default:
+        return '';
+    }
   }
 
   Map<String, dynamic> _buildFilterMap() {
@@ -271,10 +302,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
+  int get _buildNumberString {
+    return _pkg != null ? (int.tryParse(_pkg!.buildNumber) ?? 0) : 0;
+  }
+
   int get _buildNumber {
-    // ponytail: leer de PackageInfo si ya se cargó
-    if (_pkg != null) return int.tryParse(_pkg!.buildNumber) ?? 0;
-    return 0;
+    return _buildNumberString;
   }
 
   PackageInfo? _pkg;
@@ -299,7 +332,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _savePollInterval(int minutes) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt('poll_interval', minutes);
-    // Re-registrar Workmanager con nuevo intervalo
     try {
       await Workmanager().cancelAll();
       await Workmanager().registerPeriodicTask(
@@ -313,7 +345,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     } catch (_) {}
   }
 
-  Future<String> _safeVersionTag(String tag) {
+  Future<String> _safeVersionTag(String tag) async {
     final digits = RegExp(r'(\d+(?:\.\d+)*)').firstMatch(tag);
     if (digits == null) return Future.value('');
     final parts = digits.group(1)!.split('.');

@@ -3,7 +3,6 @@ import 'package:latlong2/latlong.dart';
 import 'package:flutter_map/flutter_map.dart';
 import '../data/earthquake.dart';
 import '../data/local_db.dart';
-import 'event_detail.dart';
 
 class MapScreen extends StatefulWidget {
   const MapScreen({super.key});
@@ -14,6 +13,7 @@ class MapScreen extends StatefulWidget {
 
 class _MapScreenState extends State<MapScreen> {
   late final Future<List<Earthquake>> _events;
+  Earthquake? _selectedEvent;
 
   // Clustering simple: agrupa eventos a menos de 1 grado
   List<Earthquake> _cluster(List<Earthquake> events) {
@@ -90,7 +90,10 @@ class _MapScreenState extends State<MapScreen> {
           return Stack(
             children: [
               FlutterMap(
-                options: MapOptions(center: center, zoom: 5.5),
+                options: MapOptions(
+                  initialCenter: center,
+                  initialZoom: 5.5,
+                ),
                 children: [
                   TileLayer(
                     urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
@@ -98,22 +101,25 @@ class _MapScreenState extends State<MapScreen> {
                   ),
                   MarkerLayer(
                     markers: clustered.map((e) {
+                      final isSelected = _selectedEvent?.id == e.id;
                       return Marker(
                         point: LatLng(e.latitude, e.longitude),
-                        width: _markerSize(e.magnitude) + 8,
-                        height: _markerSize(e.magnitude) + 8,
+                        width: _markerSize(e.magnitude) + (isSelected ? 8 : 0),
+                        height: _markerSize(e.magnitude) + (isSelected ? 8 : 0),
                         child: GestureDetector(
                           onTap: () {
-                            Navigator.push(context,
-                              MaterialPageRoute(builder: (_) => EventDetailScreen(event: e)));
+                            setState(() => _selectedEvent = isSelected ? null : e);
+                            if (!isSelected) {
+                              // center map on tap
+                            }
                           },
                           child: Container(
                             decoration: BoxDecoration(
-                              color: Earthquake.magnitudeColor(e.magnitude).withOpacity(0.85),
+                              color: Earthquake.magnitudeColor(e.magnitude).withValues(alpha: isSelected ? 1 : 0.85),
                               shape: BoxShape.circle,
-                              border: Border.all(color: Colors.white, width: 2),
+                              border: Border.all(color: Colors.white, width: isSelected ? 3 : 2),
                               boxShadow: [BoxShadow(
-                                color: Colors.black.withOpacity(0.3), blurRadius: 4, offset: const Offset(0, 2))],
+                                color: Colors.black.withValues(alpha: 0.3), blurRadius: 4, offset: const Offset(0, 2))],
                             ),
                             child: Center(
                               child: Text(e.place.contains('eventos') ? e.place.split(' ')[0] : e.magnitude.toStringAsFixed(1),
@@ -126,9 +132,9 @@ class _MapScreenState extends State<MapScreen> {
                   ),
                 ],
               ),
-              // Leyenda superpuesta
+              // Leyenda
               Positioned(
-                top: 8, right: 8,
+                top: 8, left: 8,
                 child: Card(
                   color: Colors.white.withOpacity(0.9),
                   child: Padding(
@@ -137,7 +143,7 @@ class _MapScreenState extends State<MapScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Text('Magnitud', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+                        Text('Magnitud', style: theme.textTheme.labelSmall?.copyWith(fontWeight: FontWeight.bold)),
                         const SizedBox(height: 4),
                         _leg('M ≥ 6.0', const Color(0xFFE53935)),
                         _leg('M 5.0–5.9', const Color(0xFFFB8C00)),
@@ -148,6 +154,17 @@ class _MapScreenState extends State<MapScreen> {
                   ),
                 ),
               ),
+              // Bottom sheet con evento seleccionado
+              if (_selectedEvent != null)
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: _MapBottomSheet(
+                    event: _selectedEvent!,
+                    onClose: () => setState(() => _selectedEvent = null),
+                  ),
+                ),
             ],
           );
         },
@@ -162,8 +179,6 @@ class _MapScreenState extends State<MapScreen> {
     return 20;
   }
 
-  Color _magnitudeColor(double mag) => Earthquake.magnitudeColor(mag);
-
   Widget _leg(String label, Color color) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 1),
@@ -172,6 +187,64 @@ class _MapScreenState extends State<MapScreen> {
         const SizedBox(width: 4),
         Text(label, style: const TextStyle(fontSize: 9)),
       ]),
+    );
+  }
+}
+
+class _MapBottomSheet extends StatelessWidget {
+  final Earthquake event;
+  final VoidCallback onClose;
+
+  const _MapBottomSheet({required this.event, required this.onClose});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 8, offset: const Offset(0, -2))],
+      ),
+      child: SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.only(top: 8),
+              decoration: BoxDecoration(color: theme.colorScheme.outlineVariant, borderRadius: BorderRadius.circular(2)),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    backgroundColor: Earthquake.magnitudeColor(event.magnitude),
+                    radius: 18,
+                    child: Text('M${event.magnitude.toStringAsFixed(1)}',
+                        style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(event.place, maxLines: 1, overflow: TextOverflow.ellipsis, style: theme.textTheme.bodyMedium),
+                        const SizedBox(height: 2),
+                        Text('${event.depthKm.toStringAsFixed(1)} km · ${event.source}', style: theme.textTheme.bodySmall),
+                      ],
+                    ),
+                  ),
+                  TextButton.icon(onPressed: onClose, icon: const Icon(Icons.close, size: 16), label: const Text('Cerrar')),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

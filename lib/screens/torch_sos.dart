@@ -20,11 +20,12 @@ class _TorchSosScreenState extends State<TorchSosScreen> with WidgetsBindingObse
   bool _audioOk = false;
   bool _torchOk = false;
   bool _torchChecked = false;
+  String? _feedback;
 
   static const _sosPatternMs = [
-    200, 200, 200, 200, 200, 600, // S
-    600, 200, 600, 200, 600, 600, // O
-    200, 200, 200, 200, 200, 200, // S
+    200, 200, 200, 200, 200, 600,
+    600, 200, 600, 200, 600, 600,
+    200, 200, 200, 200, 200, 200,
   ];
 
   @override
@@ -97,7 +98,10 @@ class _TorchSosScreenState extends State<TorchSosScreen> with WidgetsBindingObse
   }
 
   void _startSos() {
-    setState(() => _isSos = true);
+    setState(() {
+      _isSos = true;
+      _feedback = 'SOS activado';
+    });
     _torchSet(true);
     _sosStep = 0;
     _runSos();
@@ -136,7 +140,13 @@ class _TorchSosScreenState extends State<TorchSosScreen> with WidgetsBindingObse
     _sosTimer?.cancel();
     await _torchSet(false);
     await _stopBeep();
-    if (mounted) setState(() { _isSos = false; _isTorch = false; });
+    if (mounted) {
+      setState(() {
+        _isSos = false;
+        _isTorch = false;
+        _feedback = 'SOS detenido';
+      });
+    }
   }
 
   @override
@@ -147,82 +157,94 @@ class _TorchSosScreenState extends State<TorchSosScreen> with WidgetsBindingObse
       statusBarIconBrightness: _isTorch ? Brightness.dark : Brightness.light,
     ));
 
-    return Scaffold(
-      backgroundColor: _isTorch ? Colors.white : theme.colorScheme.surface,
-      appBar: _isTorch
-          ? null
-          : AppBar(
-              title: const Text('Linterna + SOS'),
-              backgroundColor: theme.colorScheme.inversePrimary,
-            ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            if (!_isTorch) ...[
-              const Icon(Icons.flashlight_on, size: 72, color: Colors.amber),
-              const SizedBox(height: 12),
-              const Text('Flash LED + Vibración + Sonido', style: TextStyle(fontSize: 16)),
-              const Text('Parpadeo SOS ··· −−− ···', style: TextStyle(fontSize: 16)),
-              const SizedBox(height: 16),
-              // Estado de dispositivos
-              if (_torchChecked)
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    _statusChip('Flash', _torchOk),
-                    const SizedBox(width: 8),
-                    _statusChip('Sonido', _audioOk),
-                    const SizedBox(width: 8),
-                    _statusChip('Vibración', true),
-                  ],
-                ),
-              if (!_torchOk && _torchChecked)
-                Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: Text('Flash no disponible en este dispositivo\nSe usará pantalla blanca + vibración',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 12, color: Colors.orange.shade700)),
-                ),
+    return PopScope(
+      canPop: !_isSos,
+      onPopInvokedWithResult: (didPop, _) async {
+        if (_isSos) await _stopSos();
+      },
+      child: Scaffold(
+        backgroundColor: _isTorch ? Colors.white : theme.colorScheme.surface,
+        appBar: _isTorch
+            ? null
+            : AppBar(
+                title: const Text('Linterna + SOS'),
+                backgroundColor: theme.colorScheme.inversePrimary,
+              ),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (!_isTorch) ...[
+                const Icon(Icons.flashlight_on, size: 72, color: Colors.amber),
+                const SizedBox(height: 12),
+                Text('Flash LED + Vibración + Sonido', style: theme.textTheme.bodyMedium),
+                Text('Parpadeo SOS ··· −−− ···', style: theme.textTheme.bodyMedium),
+                const SizedBox(height: 16),
+                // Estado de dispositivos
+                if (_torchChecked)
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      _statusChip('Flash', _torchOk),
+                      const SizedBox(width: 8),
+                      _statusChip('Sonido', _audioOk),
+                      const SizedBox(width: 8),
+                      _statusChip('Vibración', true),
+                    ],
+                  ),
+                if (!_torchOk && _torchChecked)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text('Flash no disponible en este dispositivo\nSe usará pantalla blanca + vibración',
+                      textAlign: TextAlign.center, style: theme.textTheme.bodySmall),
+                  ),
+                const SizedBox(height: 24),
+              ] else ...[
+                Text('S O S', style: theme.textTheme.headlineLarge?.copyWith(fontWeight: FontWeight.bold, letterSpacing: 16)),
+                const SizedBox(height: 8),
+                Text('SEÑAL DE AUXILIO', style: theme.textTheme.titleMedium?.copyWith(letterSpacing: 4)),
+                const SizedBox(height: 24),
+                Icon(Icons.hearing, size: 48, color: _torchOk ? Colors.red : Colors.orange),
+                const SizedBox(height: 8),
+                Text(
+                  _torchOk ? 'Flash LED + Vibración + Sonido' : 'Pantalla blanca + Vibración',
+                  style: theme.textTheme.bodyMedium?.copyWith(color: _torchOk ? Colors.black87 : Colors.orange.shade700)),
+              ],
               const SizedBox(height: 24),
-            ],
-            if (_isTorch) ...[
-              const Text('S O S', style: TextStyle(fontSize: 72, fontWeight: FontWeight.bold, letterSpacing: 16)),
-              const SizedBox(height: 8),
-              const Text('SEÑAL DE AUXILIO', style: TextStyle(fontSize: 20, letterSpacing: 4)),
-              const SizedBox(height: 24),
-              Icon(Icons.hearing, size: 48, color: _torchOk ? Colors.red : Colors.orange),
-              const SizedBox(height: 8),
-              Text(
-                _torchOk ? 'Flash LED + Vibración + Sonido' : 'Pantalla blanca + Vibración',
-                style: TextStyle(fontSize: 14, color: _torchOk ? Colors.black87 : Colors.orange.shade700)),
-            ],
-            const SizedBox(height: 24),
-            SizedBox(
-              width: 200, height: 64,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: _isSos ? Colors.red : Colors.amber,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(32)),
-                ),
-                onPressed: _toggleSos,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(_isSos ? Icons.stop : Icons.flash_on),
-                    const SizedBox(width: 8),
-                    Text(_isSos ? 'DETENER SOS' : 'INICIAR SOS',
-                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                  ],
+              SizedBox(
+                width: 220,
+                height: 76,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _isSos ? Colors.red : Colors.amber,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(36)),
+                  ),
+                  onPressed: _toggleSos,
+                  autofocus: true,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(_isSos ? Icons.stop : Icons.flash_on),
+                      const SizedBox(width: 8),
+                      Text(_isSos ? 'DETENER SOS' : 'INICIAR SOS',
+                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 24),
-            if (!_isTorch)
-              Text('Al activar: flash LED parpadea en código Morse\n+ vibración + sonido de alarma',
-                textAlign: TextAlign.center, style: theme.textTheme.bodySmall),
-          ],
+              if (_feedback != null) ...[
+                const SizedBox(height: 16),
+                Text(_feedback!, style: theme.textTheme.bodySmall),
+              ],
+              if (!_isTorch)
+                Padding(
+                  padding: const EdgeInsets.only(top: 18),
+                  child: Text('Al activar: flash LED parpadea en código Morse\n+ vibración + sonido de alarma',
+                    textAlign: TextAlign.center, style: theme.textTheme.bodySmall),
+                ),
+            ],
+          ),
         ),
       ),
     );
@@ -230,7 +252,7 @@ class _TorchSosScreenState extends State<TorchSosScreen> with WidgetsBindingObse
 
   Widget _statusChip(String label, bool ok) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         color: ok ? Colors.green.shade50 : Colors.grey.shade100,
         borderRadius: BorderRadius.circular(12),

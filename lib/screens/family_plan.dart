@@ -39,14 +39,26 @@ class _FamilyPlanScreenState extends State<FamilyPlanScreen> {
   }
 
   Future<void> _save() async {
+    final meeting = _meetingCtrl.text.trim();
+    final contacts = _contactCtrl.text.trim();
+    final notes = _notesCtrl.text.trim();
+    if (meeting.isEmpty && contacts.isEmpty) {
+      setState(() {}); // force refresh
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Registra al menos un punto de encuentro o un contacto.')),
+        );
+      }
+      return;
+    }
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('plan_meeting', _meetingCtrl.text);
-    await prefs.setString('plan_contacts', _contactCtrl.text);
-    await prefs.setString('plan_notes', _notesCtrl.text);
+    await prefs.setString('plan_meeting', meeting);
+    await prefs.setString('plan_contacts', contacts);
+    await prefs.setString('plan_notes', notes);
     setState(() {
-      _savedMeeting = _meetingCtrl.text;
-      _savedContacts = _contactCtrl.text;
-      _savedNotes = _notesCtrl.text;
+      _savedMeeting = meeting;
+      _savedContacts = contacts;
+      _savedNotes = notes;
     });
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -75,12 +87,12 @@ class _FamilyPlanScreenState extends State<FamilyPlanScreen> {
         ],
       ),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         children: [
           // Punto de encuentro
           Card(
             child: Padding(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(14),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -92,9 +104,10 @@ class _FamilyPlanScreenState extends State<FamilyPlanScreen> {
                   const SizedBox(height: 8),
                   TextField(
                     controller: _meetingCtrl,
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       hintText: 'Ej: Parque Miranda, entrada principal',
-                      border: OutlineInputBorder(),
+                      border: const OutlineInputBorder(),
+                      helperText: 'El sitio seguro designado para reunirse.',
                     ),
                     maxLines: 2,
                   ),
@@ -102,7 +115,7 @@ class _FamilyPlanScreenState extends State<FamilyPlanScreen> {
                   TextButton.icon(
                     onPressed: () => setState(() => _showMap = !_showMap),
                     icon: const Icon(Icons.map, size: 18),
-                    label: const Text('Ver en mapa'),
+                    label: Text(_showMap ? 'Ocultar mapa' : 'Ver en mapa'),
                   ),
                   if (_showMap)
                     SizedBox(
@@ -121,12 +134,12 @@ class _FamilyPlanScreenState extends State<FamilyPlanScreen> {
               ),
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
 
           // Contactos familiares
           Card(
             child: Padding(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(14),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -138,9 +151,10 @@ class _FamilyPlanScreenState extends State<FamilyPlanScreen> {
                   const SizedBox(height: 8),
                   TextField(
                     controller: _contactCtrl,
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       hintText: 'Mamá: 0412-xxx\nPapá: 0416-xxx\nTío: ...',
-                      border: OutlineInputBorder(),
+                      border: const OutlineInputBorder(),
+                      helperText: 'Uno por línea, con nombre y teléfono.',
                     ),
                     maxLines: 4,
                   ),
@@ -148,12 +162,12 @@ class _FamilyPlanScreenState extends State<FamilyPlanScreen> {
               ),
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
 
           // Notas
           Card(
             child: Padding(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(14),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -165,9 +179,10 @@ class _FamilyPlanScreenState extends State<FamilyPlanScreen> {
                   const SizedBox(height: 8),
                   TextField(
                     controller: _notesCtrl,
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       hintText: 'Cortar gas en: ...\nRutas de evacuación: ...\nAlergias/medicamentos: ...',
-                      border: OutlineInputBorder(),
+                      border: const OutlineInputBorder(),
+                      helperText: 'Rutas, medicamentos o datos clave.',
                     ),
                     maxLines: 4,
                   ),
@@ -175,7 +190,7 @@ class _FamilyPlanScreenState extends State<FamilyPlanScreen> {
               ),
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
 
           // Botón "Estoy bien" — real via SMS/WhatsApp
           Card(
@@ -189,17 +204,21 @@ class _FamilyPlanScreenState extends State<FamilyPlanScreen> {
                 onSelected: (method) {
                   final msg = '¡Estoy bien! 🙏 SismoVE - Sismo detectado. ¿Todos bien?';
                   final contactList = _contactCtrl.text;
+                  int sent = 0;
                   for (final line in contactList.split('\n')) {
                     final parts = line.split(':');
                     if (parts.length >= 2) {
                       final num = parts.sublist(1).join(':').trim();
                       if (method == 'sms') _sendMsg('sms', num, msg);
                       else _sendMsg('wa', num, msg);
+                      sent++;
                     }
                   }
-                  if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Enviado por ${method == 'sms' ? 'SMS' : 'WhatsApp'}')),
-                  );
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Enviado por ${method == 'sms' ? 'SMS' : 'WhatsApp'} ($sent)')),
+                    );
+                  }
                 },
                 itemBuilder: (_) => [
                   const PopupMenuItem(value: 'sms', child: ListTile(leading: Icon(Icons.sms), title: Text('SMS'), dense: true)),
@@ -208,7 +227,7 @@ class _FamilyPlanScreenState extends State<FamilyPlanScreen> {
               ),
             ),
           ),
-          const SizedBox(height: 32),
+          const SizedBox(height: 20),
         ],
       ),
     );
@@ -220,11 +239,12 @@ class _FamilyPlanScreenState extends State<FamilyPlanScreen> {
     final uri = type == 'sms'
         ? Uri.parse('sms:$clean?body=${Uri.encodeComponent(text)}')
         : Uri.parse('https://wa.me/$clean?text=${Uri.encodeComponent(text)}');
-    if (!uri.hasEmptyPath && await canLaunchUrl(uri)) {
+    if (await canLaunchUrl(uri)) {
       await launchUrl(uri);
     } else if (mounted) {
       final label = type == 'sms' ? 'SMS' : 'WhatsApp';
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('No se pudo enviar por $label: destino no disponible o número inválido')));    }
+        SnackBar(content: Text('No se pudo enviar por $label: destino no disponible o número inválido')));
+    }
   }
 }
