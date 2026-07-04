@@ -44,7 +44,8 @@ Future<void> _checkAndNotify() async {
 }
 
 Future<Set<String>> _unnotifiedIds(LocalDb db) async {
-  final rows = await db.database.rawQuery(
+  final database = await db.database;
+  final rows = await database.rawQuery(
     'SELECT id FROM events WHERE notified = 0',
   );
   return rows.map((r) => r['id'] as String).toSet();
