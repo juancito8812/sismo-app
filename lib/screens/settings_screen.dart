@@ -30,12 +30,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _clearing = false;
   bool _seeding = false;
   bool _checking = false;
+  _UpdateStatus _updateStatus = _UpdateStatus.idle;
   String? _updateInfo;
+  String? _updateBody;
   String? _updateUrl;
   String? _exportPath;
   int _seededCount = 0;
 
   final _sources = ['Todas', 'USGS'];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPackageInfo();
+    _loadPollInterval();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -135,27 +144,80 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const SizedBox(height: 16),
 
           _section(theme, Icons.system_update, 'Actualizaciones', [
-            if (_updateInfo != null)
+            if (_updateStatus == _UpdateStatus.checking)
+              const LinearProgressIndicator(minHeight: 2)
+            else if (_updateStatus == _UpdateStatus.error)
               Card(
-                color: _updateInfo!.contains('disponible') ? Colors.green.shade50 : Colors.grey.shade100,
+                color: Colors.red.shade50,
                 child: ListTile(
-                  leading: Icon(_updateInfo!.contains('disponible') ? Icons.system_update : Icons.check_circle,
-                    color: _updateInfo!.contains('disponible') ? Colors.green : Colors.grey),
-                  title: Text(_updateInfo!),
-                  trailing: _updateUrl != null
-                      ? ElevatedButton(onPressed: () => launchUrl(Uri.parse(_updateUrl!)), child: const Text('Descargar'))
-                      : null,
+                  dense: true,
+                  leading: const Icon(Icons.wifi_off_rounded, color: Colors.red),
+                  title: Text(_updateInfo ?? 'No se pudo verificar actualizaciones'),
+                ),
+              )
+            else if (_updateStatus == _UpdateStatus.available)
+              Card(
+                color: Colors.green.shade50,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.system_update, color: Colors.green),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(_updateInfo ?? 'Actualización disponible',
+                              style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
+                          ),
+                        ],
+                      ),
+                      if ((_updateBody?.trim().isNotEmpty) ?? false) ...[
+                        const SizedBox(height: 8),
+                        Text(_updateBody!.trim(), style: theme.textTheme.bodySmall),
+                      ],
+                      const SizedBox(height: 10),
+                      if (_updateUrl != null)
+                        FilledButton.icon(
+                          onPressed: () => launchUrl(Uri.parse(_updateUrl!), mode: LaunchMode.externalApplication),
+                          icon: const Icon(Icons.download),
+                          label: const Text('Descargar actualización'),
+                        ),
+                      const SizedBox(height: 8),
+                      TextButton.icon(
+                        onPressed: () => _checkForUpdate(),
+                        icon: const Icon(Icons.refresh, size: 18),
+                        label: const Text('Volver a comprobar'),
+                      ),
+                    ],
+                  ),
+                ),
+              )
+            else
+              Card(
+                color: Colors.grey.shade50,
+                child: ListTile(
+                  dense: true,
+                  leading: const Icon(Icons.check_circle, color: Colors.grey),
+                  title: Text(_updateInfo ?? 'App al día'),
                 ),
               ),
-            OutlinedButton.icon(
-              onPressed: _checking ? null : _checkForUpdate,
-              icon: _checking
-                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                  : const Icon(Icons.system_update),
-              label: Text(_checking ? 'Buscando...' : 'Buscar actualización')),
             const SizedBox(height: 8),
-            Center(child: Text('Versión: 1.0.0 (build ${_buildNumber})',
-              style: theme.textTheme.bodySmall)),
+            Center(
+              child: TextButton.icon(
+                onPressed: _checking ? null : _checkForUpdate,
+                icon: _checking
+                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Icon(Icons.refresh, size: 18),
+                label: Text(_checking ? 'Comprobando...' : 'Buscar actualización'),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Center(
+              child: Text('Versión ${(_pkg?.version ?? '-')} (${_pkg?.buildNumber ?? '-'})',
+                style: theme.textTheme.bodySmall),
+            ),
           ]),
         ],
       ),
@@ -317,13 +379,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (mounted) setState(() {});
   }
 
-  @override
-  void initState() {
-    super.initState();
-    _loadPackageInfo();
-    _loadPollInterval();
-  }
-
   Future<void> _loadPollInterval() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() => _pollInterval = prefs.getInt('poll_interval') ?? 15);
@@ -387,14 +442,37 @@ class _SettingsScreenState extends State<SettingsScreen> {
       final currentVersion = await _safeVersionTag(_buildNumber.toString());
       final next = currentVersion.compareTo(remoteVersion) < 0;
       setState(() {
+        _updateStatus = next ? _UpdateStatus.available : _UpdateStatus.upToDate;
         _updateInfo = next ? 'Actualización disponible: $tag' : 'Ya tienes la última versión ($remoteVersion)';
+        _updateBody = _safeBody(data);
         _updateUrl = next ? apkUrl : null;
         _checking = false;
       });
     } catch (e) {
-      setState(() => _updateInfo = 'Error: $e');
+      setState(() { _updateStatus = _UpdateStatus.error; _updateInfo = 'Error: $e'; });
     } finally {
-      setState(() => _checking = false);
+      if (_updateStatus != _UpdateStatus.available && _updateStatus != _UpdateStatus.upToDate && _updateStatus != _UpdateStatus.error) {
+        setState(() => _checking = false);
+      }
     }
   }
+
+  String? _safeBody(Map<String, dynamic> data) {
+    final body = (data['body'] as String? ?? '').trim();
+    if (body.isEmpty) return null;
+    final seen = <String>{};
+    final lines = <String>[];
+    for (final raw in body.split(RegExp(r'\r?\n'))) {
+      final line = raw.trim();
+      if (line.isEmpty) continue;
+      if (line.startsWith('#') || line.startsWith('```')) continue;
+      final normalized = line.toLowerCase();
+      if (!seen.add(normalized)) continue;
+      lines.add(line);
+      if (lines.length >= 6) break;
+    }
+    return lines.join('\n');
+  }
 }
+
+enum _UpdateStatus { idle, checking, available, upToDate, error }
