@@ -448,6 +448,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _updateUrl = next ? apkUrl : null;
         _checking = false;
       });
+      if (next) {
+        await UpdateService.markAvailable(
+          url: apkUrl ?? '',
+          info: 'Actualización disponible: $tag',
+          body: _safeBody(data),
+        );
+      } else {
+        await UpdateService.markUpdated();
+      }
     } catch (e) {
       setState(() { _updateStatus = _UpdateStatus.error; _updateInfo = 'Error: $e'; });
     } finally {

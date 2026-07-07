@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../data/local_db.dart';
 import '../data/earthquake.dart';
+import '../services/update_service.dart';
 import 'event_detail.dart';
 import 'map_screen.dart';
 import 'settings_screen.dart';
@@ -24,6 +26,8 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   late Future<List<Earthquake>> _future;
   int _newCount = 0;
+  bool _updateAvailable = false;
+  String? _updateUrl;
   double _minMag = 0;
   int _dateRange = 0;
   String _source = 'Todas';
@@ -32,6 +36,17 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _future = _load();
+    _loadUpdateHint();
+  }
+
+  Future<void> _loadUpdateHint() async {
+    final available = await UpdateService.available;
+    final url = await UpdateService.url;
+    if (!mounted) return;
+    setState(() {
+      _updateAvailable = available;
+      _updateUrl = url;
+    });
   }
 
   Future<List<Earthquake>> _load() async {
@@ -90,11 +105,33 @@ class _HomeScreenState extends State<HomeScreen> {
       });
       _refresh();
     }
+    if (mounted) _loadUpdateHint();
   }
 
   void _dismissNews() {
     setState(() => _newCount = 0);
     LocalDb.instance.clearNotified();
+  }
+
+  void _dismissUpdate() async {
+    await UpdateService.markUpdated();
+    if (!mounted) return;
+    setState(() {
+      _updateAvailable = false;
+      _updateUrl = null;
+    });
+  }
+
+  void _openUpdate() async {
+    final url = _updateUrl;
+    if (url == null) return;
+    await UpdateService.markUpdated();
+    if (!mounted) return;
+    setState(() {
+      _updateAvailable = false;
+      _updateUrl = null;
+    });
+    await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
   }
 
   void _openActions() {
@@ -125,7 +162,24 @@ class _HomeScreenState extends State<HomeScreen> {
     final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('SismoVE'),
+        title: Row(
+          children: [
+            const Text('SismoVE'),
+            if (_updateAvailable) ...[
+              const SizedBox(width: 8),
+              InkWell(
+                onTap: _openUpdate,
+                borderRadius: BorderRadius.circular(16),
+                child: Chip(
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  visualDensity: VisualDensity.compact,
+                  label: const Text('Actualización disponible', style: TextStyle(fontSize: 12)),
+                  avatar: const Icon(Icons.system_update, size: 16),
+                ),
+              ),
+            ],
+          ],
+        ),
         backgroundColor: theme.colorScheme.inversePrimary,
         actions: [
           if (_newCount > 0)
