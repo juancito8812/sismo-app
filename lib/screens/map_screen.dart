@@ -169,8 +169,6 @@ class _MapScreenState extends State<MapScreen> {
     return 20;
   }
 
-  Color _magnitudeColor(double mag) => Earthquake.magnitudeColor(mag);
-
   Widget _leg(String label, Color color) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 1),
