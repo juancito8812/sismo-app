@@ -3,33 +3,52 @@ name: Build APK
 on:
   push:
     branches: [main]
+    paths-ignore: ['*.md', '.gitignore']
   pull_request:
     branches: [main]
   workflow_dispatch:
 
 jobs:
-  build:
+  analyze:
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
-
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
+      - uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.27.x'
           channel: 'stable'
+          cache: true
+      - run: flutter pub get
+      - run: flutter analyze
 
-      - name: Install dependencies
-        run: flutter pub get
-
-      - name: Build APK
-        run: flutter build apk --release --no-shrink
-
-      - name: Upload APK artifact
-        uses: actions/upload-artifact@v4
+  test:
+    runs-on: ubuntu-latest
+    needs: analyze
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
         with:
-          name: sismove-release
+          flutter-version: '3.27.x'
+          channel: 'stable'
+          cache: true
+      - run: flutter pub get
+      - run: flutter test
+
+  build:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.27.x'
+          channel: 'stable'
+          cache: true
+      - run: flutter pub get
+      - run: flutter build apk --release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sismo-apk-release
           path: build/app/outputs/flutter-apk/app-release.apk
           retention-days: 30
 
@@ -39,23 +58,21 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-
     steps:
       - uses: actions/checkout@v4
-
-      - name: Download APK
-        uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v4
         with:
-          name: sismove-release
+          name: sismo-apk-release
           path: ./apk
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ github.run_number }}
-          name: "SismoVE v${{ github.run_number }}"
+          tag_name: v1.0.${{ github.run_number }}
+          name: "SismoVE v1.0.${{ github.run_number }}"
           body: |
             APK generado automáticamente desde `main`.
             Commit: ${{ github.sha }}
+
+            ## Cambios en este release
+            ${{ github.event.head_commit.message }}
           files: ./apk/app-release.apk
           generate_release_notes: true
