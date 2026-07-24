@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../data/earthquake.dart';
 
 class FeltReportScreen extends StatefulWidget {
@@ -39,9 +40,41 @@ class _FeltReportScreenState extends State<FeltReportScreen> {
     await prefs.setStringList('felt_reports', reports);
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Reporte enviado. ¡Gracias!')),
+        const SnackBar(content: Text('Reporte guardado localmente. ¡Gracias!')),
       );
       Navigator.pop(context);
+    }
+  }
+
+  Future<void> _shareReport() async {
+    final buf = StringBuffer();
+    buf.writeln('📋 Reporte de sismo — SismoVE');
+    buf.writeln('━━━━━━━━━━━━━━━━━━');
+    if (widget.event != null) {
+      buf.writeln('Sismo: M${widget.event!.magnitude.toStringAsFixed(1)} — ${widget.event!.place}');
+    }
+    buf.writeln('¿Lo sentiste? ${_felt ? "Sí" : "No"}');
+    buf.writeln('Ubicación: $_location');
+    buf.writeln('Intensidad: $_intensity/5');
+    if (_damageCtrl.text.isNotEmpty) {
+      buf.writeln('Daños: ${_damageCtrl.text}');
+    }
+    buf.writeln('━━━━━━━━━━━━━━━━━━');
+    buf.writeln('App: SismoVE — Alertas sísmicas Venezuela');
+
+    final msg = buf.toString();
+    final uri = Uri.parse('https://wa.me/?text=${Uri.encodeComponent(msg)}');
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri);
+    } else {
+      final smsUri = Uri.parse('sms:?body=${Uri.encodeComponent(msg)}');
+      if (await canLaunchUrl(smsUri)) {
+        await launchUrl(smsUri);
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No se encontró app para compartir')),
+        );
+      }
     }
   }
 
@@ -118,8 +151,34 @@ class _FeltReportScreenState extends State<FeltReportScreen> {
 
           FilledButton.icon(
             onPressed: _submit,
-            icon: const Icon(Icons.send),
-            label: const Text('Enviar reporte'),
+            icon: const Icon(Icons.save),
+            label: const Text('Guardar reporte local'),
+          ),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: _shareReport,
+            icon: const Icon(Icons.share),
+            label: const Text('Compartir reporte'),
+          ),
+          const SizedBox(height: 8),
+          Card(
+            color: Colors.amber.shade50,
+            child: Padding(
+              padding: const EdgeInsets.all(8),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline, size: 16, color: Colors.amber.shade800),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Los reportes se guardan solo en tu dispositivo. '
+                      'Usa "Compartir" para enviarlos a contactos o redes sociales.',
+                      style: TextStyle(fontSize: 11, color: Colors.amber.shade900),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
           const SizedBox(height: 32),
         ],

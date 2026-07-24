@@ -137,7 +137,6 @@ class EventDetailScreen extends StatelessWidget {
         ),
         title: Text(label, style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
         subtitle: Text(value, style: theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600)),
-        trailing: const Icon(Icons.chevron_right, size: 18, color: Colors.grey),
       ),
     );
   }

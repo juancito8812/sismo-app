@@ -125,10 +125,8 @@ class _EmergencyKitScreenState extends State<EmergencyKitScreen> {
                     ...cat.items.map((item) => CheckboxListTile(
                       value: _checked.contains(item.key),
                       onChanged: (_) => _toggle(item.key),
-                      title: Text(item.label, style: const TextStyle(fontSize: 13)),
-                      dense: true,
+                      title: Text(item.label, style: const TextStyle(fontSize: 14)),
                       controlAffinity: ListTileControlAffinity.leading,
-                      visualDensity: VisualDensity.compact,
                     )),
                   ],
                 ),

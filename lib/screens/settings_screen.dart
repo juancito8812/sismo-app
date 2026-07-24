@@ -72,7 +72,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             const SizedBox(height: 8),
             FilledButton.icon(
-              onPressed: () => Navigator.pop(context, _buildFilterMap()),
+              onPressed: () {
+                _saveFilters();
+                Navigator.pop(context, _buildFilterMap());
+              },
               icon: const Icon(Icons.filter_alt), label: const Text('Aplicar filtros')),
           ]),
 
@@ -289,6 +292,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
     super.initState();
     _loadPackageInfo();
     _loadPollInterval();
+    _loadFilters();
+  }
+
+  Future<void> _loadFilters() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _minMagnitude = prefs.getDouble('filter_min_magnitude') ?? 3.0;
+      _dateFilter = prefs.getInt('filter_date_range') ?? 0;
+      _sourceFilter = prefs.getString('filter_source') ?? 'Todas';
+    });
+  }
+
+  Future<void> _saveFilters() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble('filter_min_magnitude', _minMagnitude);
+    await prefs.setInt('filter_date_range', _dateFilter);
+    await prefs.setString('filter_source', _sourceFilter);
   }
 
   Future<void> _loadPollInterval() async {

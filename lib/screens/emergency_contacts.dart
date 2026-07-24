@@ -171,24 +171,26 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen> {
         leading: CircleAvatar(backgroundColor: c.color.withOpacity(0.2), child: Icon(c.icon, color: c.color, size: 20)),
         title: Text(c.name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
         subtitle: Text(c.number, style: const TextStyle(fontSize: 12)),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            IconButton(
-              icon: const Icon(Icons.message, size: 18, color: Colors.teal),
-              tooltip: 'Mensaje rápido',
-              onPressed: () => _showMessageSheet(context, c.name, c.number),
-            ),
-            IconButton(
-              icon: const Icon(Icons.phone, size: 18, color: Colors.green),
-              tooltip: 'Llamar',
-              onPressed: () => _call(c.number),
-            ),
+        trailing: PopupMenuButton<String>(
+          icon: const Icon(Icons.more_vert, size: 20),
+          onSelected: (action) {
+            switch (action) {
+              case 'sms': _showMessageSheet(context, c.name, c.number); break;
+              case 'call': _call(c.number); break;
+              case 'remove': if (onRemove != null) onRemove(); break;
+            }
+          },
+          itemBuilder: (_) => [
+            const PopupMenuItem(value: 'sms', child: ListTile(
+              leading: Icon(Icons.message, color: Colors.teal),
+              title: Text('Mensaje'), dense: true)),
+            const PopupMenuItem(value: 'call', child: ListTile(
+              leading: Icon(Icons.phone, color: Colors.green),
+              title: Text('Llamar'), dense: true)),
             if (onRemove != null)
-              IconButton(
-                icon: const Icon(Icons.close, size: 16, color: Colors.grey),
-                onPressed: onRemove,
-              ),
+              const PopupMenuItem(value: 'remove', child: ListTile(
+                leading: Icon(Icons.close, color: Colors.red),
+                title: Text('Eliminar'), dense: true)),
           ],
         ),
       ),

@@ -82,10 +82,9 @@ class LocalDb {
     await db.update('events', {'notified': value}, where: 'id = ?', whereArgs: [id]);
   }
 
-  Future<List<Earthquake>> recent({int limit = 50}) async {
-    final db = await database;
-    final rows = await db.query('events', orderBy: 'time DESC', limit: limit);
-    return rows.map((r) => Earthquake(
+  /// Convierte una fila de la DB a [Earthquake].
+  static Earthquake _rowToEarthquake(Map<String, dynamic> r) {
+    return Earthquake(
       id: r['id'] as String,
       magnitude: (r['magnitude'] as num).toDouble(),
       place: r['place'] as String,
@@ -95,7 +94,13 @@ class LocalDb {
       depthKm: (r['depth_km'] as num).toDouble(),
       source: r['source'] as String? ?? 'USGS',
       notified: (r['notified'] as int? ?? 0),
-    )).toList();
+    );
+  }
+
+  Future<List<Earthquake>> recent({int limit = 50}) async {
+    final db = await database;
+    final rows = await db.query('events', orderBy: 'time DESC', limit: limit);
+    return rows.map(_rowToEarthquake).toList();
   }
 
   Future<List<Earthquake>> queryFiltered({
@@ -129,17 +134,7 @@ class LocalDb {
       orderBy: 'time DESC',
       limit: limit,
     );
-    return rows.map((r) => Earthquake(
-      id: r['id'] as String,
-      magnitude: (r['magnitude'] as num).toDouble(),
-      place: r['place'] as String,
-      time: DateTime.fromMillisecondsSinceEpoch(r['time'] as int),
-      latitude: (r['latitude'] as num).toDouble(),
-      longitude: (r['longitude'] as num).toDouble(),
-      depthKm: (r['depth_km'] as num).toDouble(),
-      source: r['source'] as String? ?? 'USGS',
-      notified: (r['notified'] as int? ?? 0),
-    )).toList();
+    return rows.map(_rowToEarthquake).toList();
   }
 
   Future<int> unnotifiedCount() async {

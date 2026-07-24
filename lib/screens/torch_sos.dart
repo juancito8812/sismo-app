@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:audioplayers/audioplayers.dart';
@@ -14,8 +13,7 @@ class TorchSosScreen extends StatefulWidget {
 class _TorchSosScreenState extends State<TorchSosScreen> with WidgetsBindingObserver {
   bool _isSos = false;
   bool _isTorch = false;
-  Timer? _sosTimer;
-  int _sosStep = 0;
+  bool _sosRunning = false;
   final _player = AudioPlayer();
   bool _audioOk = false;
   bool _torchOk = false;
@@ -58,7 +56,7 @@ class _TorchSosScreenState extends State<TorchSosScreen> with WidgetsBindingObse
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _sosTimer?.cancel();
+    _sosRunning = false;
     _player.dispose();
     _torchSet(false);
     super.dispose();
@@ -92,48 +90,70 @@ class _TorchSosScreenState extends State<TorchSosScreen> with WidgetsBindingObse
   }
 
   void _toggleSos() {
-    if (_isSos) _stopSos();
-    else _startSos();
+    if (_isSos) {
+      _stopSos();
+    } else {
+      // Confirmación para evitar activación accidental
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          icon: const Icon(Icons.warning_amber, color: Colors.red, size: 40),
+          title: const Text('¿Iniciar señal SOS?'),
+          content: const Text('Se activará la linterna, vibración y sonido de alarma.\n\n'
+              'Usa esta función SOLO en caso de emergencia real.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                _startSos();
+              },
+              style: FilledButton.styleFrom(backgroundColor: Colors.red),
+              child: const Text('INICIAR SOS'),
+            ),
+          ],
+        ),
+      );
+    }
   }
 
   void _startSos() {
     setState(() => _isSos = true);
     _torchSet(true);
-    _sosStep = 0;
-    _runSos();
+    _sosRunning = true;
+    _runSos(0);
   }
 
-  void _runSos() {
-    _sosTimer?.cancel();
-    _sosTimer = Timer.periodic(const Duration(milliseconds: 30), (timer) {
-      if (!mounted || !_isSos) { timer.cancel(); return; }
+  Future<void> _runSos(int step) async {
+    if (!mounted || !_sosRunning) return;
 
-      if (_sosStep < _sosPatternMs.length) {
-        final isOn = _sosStep.isEven;
-        final duration = _sosPatternMs[_sosStep];
+    if (step < _sosPatternMs.length) {
+      final isOn = step.isEven;
+      final duration = _sosPatternMs[step];
 
-        if (isOn) {
-          _torchSet(true);
-          _playBeep();
-          _vibrate();
-        } else {
-          _torchSet(false);
-          _stopBeep();
-        }
-
-        setState(() => _isTorch = isOn);
-        _sosStep++;
-        timer.cancel();
-        Future.delayed(Duration(milliseconds: duration), _runSos);
+      if (isOn) {
+        _torchSet(true);
+        _playBeep();
+        _vibrate();
       } else {
-        _sosStep = 0;
-        _runSos();
+        _torchSet(false);
+        _stopBeep();
       }
-    });
+
+      if (mounted) setState(() => _isTorch = isOn);
+      await Future.delayed(Duration(milliseconds: duration));
+      _runSos(step + 1);
+    } else {
+      // Reiniciar ciclo
+      _runSos(0);
+    }
   }
 
   Future<void> _stopSos() async {
-    _sosTimer?.cancel();
+    _sosRunning = false;
     await _torchSet(false);
     await _stopBeep();
     if (mounted) setState(() { _isSos = false; _isTorch = false; });
@@ -176,6 +196,23 @@ class _TorchSosScreenState extends State<TorchSosScreen> with WidgetsBindingObse
                     const SizedBox(width: 8),
                     _statusChip('Vibración', true),
                   ],
+                )
+              else
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Semantics(
+                    label: 'Verificando disponibilidad de flash',
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const SizedBox(width: 16, height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2)),
+                        const SizedBox(width: 8),
+                        Text('Verificando flash...',
+                          style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                      ],
+                    ),
+                  ),
                 ),
               if (!_torchOk && _torchChecked)
                 Padding(
@@ -191,7 +228,7 @@ class _TorchSosScreenState extends State<TorchSosScreen> with WidgetsBindingObse
               const SizedBox(height: 8),
               const Text('SEÑAL DE AUXILIO', style: TextStyle(fontSize: 20, letterSpacing: 4)),
               const SizedBox(height: 24),
-              Icon(Icons.hearing, size: 48, color: _torchOk ? Colors.red : Colors.orange),
+              Icon(Icons.hearing, size: 48, color: _torchOk ? theme.colorScheme.error : Colors.orange),
               const SizedBox(height: 8),
               Text(
                 _torchOk ? 'Flash LED + Vibración + Sonido' : 'Pantalla blanca + Vibración',

@@ -1,10 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:sismo_ve/screens/home.dart';
 import 'package:workmanager/workmanager.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sismo_ve/services/background_poller.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Leer intervalo guardado (Settings puede haberlo cambiado)
+  final prefs = await SharedPreferences.getInstance();
+  final pollMinutes = prefs.getInt('poll_interval') ?? 15;
+
   try {
     await Workmanager().initialize(
       callbackDispatcher,
@@ -14,14 +20,14 @@ void main() async {
     await Workmanager().registerPeriodicTask(
       'sismos.background',
       kBackgroundChannel,
-      frequency: const Duration(minutes: 15),
+      frequency: Duration(minutes: pollMinutes),
       constraints: Constraints(
         networkType: NetworkType.connected,
         requiresBatteryNotLow: true,
       ),
     );
     // ignore: avoid_print
-    print('[main] Workmanager initialized');
+    print('[main] Workmanager initialized (interval: ${pollMinutes}min)');
   } catch (e) {
     // Si Workmanager falla (ej. permisos no concedidos), la app igual arranca
     // ignore: avoid_print

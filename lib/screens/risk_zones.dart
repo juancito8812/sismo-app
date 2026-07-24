@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -45,6 +46,7 @@ class RiskZonesScreen extends StatelessWidget {
                     height: 30,
                     child: GestureDetector(
                       onTap: () {
+                        HapticFeedback.lightImpact();
                         showDialog(
                           context: context,
                           builder: (ctx) => AlertDialog(
@@ -105,6 +107,7 @@ class RiskZonesScreen extends StatelessWidget {
                 subtitle: Text(z.description.split('.')[0] + '.', style: const TextStyle(fontSize: 12)),
                 dense: true,
                 onTap: () {
+                  HapticFeedback.lightImpact();
                   showDialog(
                     context: context,
                     builder: (ctx) => AlertDialog(

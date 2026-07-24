@@ -94,7 +94,11 @@ class FirstAidScreen extends StatelessWidget {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('• ', style: TextStyle(fontSize: 14)),
+                    Semantics(
+                      label: 'Paso',
+                      child: Icon(Icons.circle, size: 6, color: color),
+                    ),
+                    const SizedBox(width: 8),
                     Expanded(child: Text(step, style: const TextStyle(fontSize: 14))),
                   ],
                 ),

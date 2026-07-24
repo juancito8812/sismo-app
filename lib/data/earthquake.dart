@@ -1,5 +1,11 @@
 import 'dart:ui' show Color;
 
+/// Límites geográficos de Venezuela (usados por repositorio y UI)
+const double kVenezuelaMinLat = -5;
+const double kVenezuelaMaxLat = 15;
+const double kVenezuelaMinLon = -75;
+const double kVenezuelaMaxLon = -60;
+
 class Earthquake {
   final String id;
   final double magnitude;

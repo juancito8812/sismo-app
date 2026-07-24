@@ -3,8 +3,11 @@ import 'package:http/http.dart' as http;
 import '../data/earthquake.dart';
 
 class EarthquakeRepository {
-  static const _usgsVenezuelaUrl =
-      'https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&minlatitude=-5&maxlatitude=15&minlongitude=-75&maxlongitude=-60&minmagnitude=2.5&orderby=time';
+  static const _usgsBaseUrl =
+      'https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson'
+      '&minlatitude=$kVenezuelaMinLat&maxlatitude=$kVenezuelaMaxLat'
+      '&minlongitude=$kVenezuelaMinLon&maxlongitude=$kVenezuelaMaxLon'
+      '&minmagnitude=2.5&orderby=time';
 
   Future<List<Earthquake>> fetchRecent() async {
     final events = await _fetchFromUsgs();
@@ -13,7 +16,9 @@ class EarthquakeRepository {
 
   Future<Set<Earthquake>> _fetchFromUsgs() async {
     try {
-      final uri = Uri.parse(_usgsVenezuelaUrl);
+      // Solo eventos de los últimos 7 días para reducir payload
+      final since = DateTime.now().subtract(const Duration(days: 7)).toIso8601String().split('T')[0];
+      final uri = Uri.parse('$_usgsBaseUrl&starttime=$since&limit=200');
       final response = await http.get(uri).timeout(const Duration(seconds: 20));
       if (response.statusCode != 200) return {};
 
@@ -47,13 +52,18 @@ class EarthquakeRepository {
     final url =
         'https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson'
         '&starttime=${since.toIso8601String().split('T')[0]}$untilStr'
-        '&minlatitude=-5&maxlatitude=15&minlongitude=-75&maxlongitude=-60'
+        '&minlatitude=$kVenezuelaMinLat&maxlatitude=$kVenezuelaMaxLat'
+        '&minlongitude=$kVenezuelaMinLon&maxlongitude=$kVenezuelaMaxLon'
         '&minmagnitude=2.5&orderby=time&limit=20000';
 
     try {
       final uri = Uri.parse(url);
       final response = await http.get(uri).timeout(const Duration(seconds: 30));
-      if (response.statusCode != 200) return [];
+      if (response.statusCode != 200) {
+        // ignore: avoid_print
+        print('[repository] fetchHistorical HTTP ${response.statusCode}');
+        return [];
+      }
 
       final data = jsonDecode(response.body) as Map<String, dynamic>;
       final features = (data['features'] as List?) ?? [];
@@ -64,15 +74,21 @@ class EarthquakeRepository {
           if (_inVenezuelaArea(eq.latitude, eq.longitude)) {
             out.add(eq);
           }
-        } catch (_) {}
+        } catch (e) {
+          // ignore: avoid_print
+          print('[repository] skip malformed historical feature: $e');
+        }
       }
       return out;
-    } catch (_) {
+    } catch (e) {
+      // ignore: avoid_print
+      print('[repository] fetchHistorical error: $e');
       return [];
     }
   }
 
   bool _inVenezuelaArea(double lat, double lon) {
-    return lat >= -5 && lat <= 15 && lon >= -75 && lon <= -60;
+    return lat >= kVenezuelaMinLat && lat <= kVenezuelaMaxLat &&
+           lon >= kVenezuelaMinLon && lon <= kVenezuelaMaxLon;
   }
 }

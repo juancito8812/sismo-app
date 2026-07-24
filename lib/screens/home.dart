@@ -108,10 +108,13 @@ class _HomeScreenState extends State<HomeScreen> {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8),
               child: Center(
-                child: Chip(
-                  visualDensity: VisualDensity.compact,
-                  label: Text('$_newCount nuevo(s)'),
-                  onDeleted: _dismissNews,
+                child: Semantics(
+                  label: '$_newCount sismo(s) nuevo(s), toca para descartar',
+                  child: Chip(
+                    visualDensity: VisualDensity.compact,
+                    label: Text('$_newCount nuevo(s)'),
+                    onDeleted: _dismissNews,
+                  ),
                 ),
               ),
             ),
@@ -166,17 +169,37 @@ class _HomeScreenState extends State<HomeScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       color: Colors.red.shade50,
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // — Monitoreo —
+          Row(children: [
+            Icon(Icons.satellite_alt, size: 14, color: Colors.red.shade800),
+            const SizedBox(width: 4),
+            Text('MONITOREO', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.red.shade800, letterSpacing: 1)),
+          ]),
+          const SizedBox(height: 4),
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
               children: [
-                Text(' 📡 ', style: TextStyle(fontSize: 11, color: Colors.red.shade800)),
                 _prepButton(Icons.map, 'Mapa', () => _openPage(const MapScreen())),
                 const SizedBox(width: 6),
                 _prepButton(Icons.settings, 'Ajustes', () => _openSettings()),
-                const SizedBox(width: 6),
-                Text(' 🧰 ', style: TextStyle(fontSize: 11, color: Colors.red.shade800)),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          // — Preparación —
+          Row(children: [
+            Icon(Icons.medical_services, size: 14, color: Colors.red.shade800),
+            const SizedBox(width: 4),
+            Text('PREPARACIÓN', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.red.shade800, letterSpacing: 1)),
+          ]),
+          const SizedBox(height: 4),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
                 _prepButton(Icons.healing, 'Guía', () => _openPage(const SafetyGuideScreen())),
                 const SizedBox(width: 6),
                 _prepButton(Icons.emergency, 'Kit', () => _openPage(const EmergencyKitScreen())),
@@ -184,15 +207,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 _prepButton(Icons.phone, 'Contactos', () => _openPage(const EmergencyContactsScreen())),
                 const SizedBox(width: 6),
                 _prepButton(Icons.flash_on, 'SOS', () => _openPage(const TorchSosScreen())),
-              ],
-            ),
-          ),
-          const SizedBox(height: 4),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                const SizedBox(width: 30),
+                const SizedBox(width: 6),
                 _prepButton(Icons.people, 'Familia', () => _openPage(const FamilyPlanScreen())),
                 const SizedBox(width: 6),
                 _prepButton(Icons.report, 'Reportar', () => _openPage(const FeltReportScreen())),
@@ -211,12 +226,13 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _prepButton(IconData icon, String label, VoidCallback onTap) {
     return TextButton.icon(
       onPressed: onTap,
-      icon: Icon(icon, size: 18),
-      label: Text(label, style: const TextStyle(fontSize: 12)),
+      icon: Icon(icon, size: 20),
+      label: Text(label, style: const TextStyle(fontSize: 13)),
       style: TextButton.styleFrom(
         backgroundColor: Colors.white,
         foregroundColor: Colors.red.shade800,
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        minimumSize: const Size(64, 48),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       ),
     );

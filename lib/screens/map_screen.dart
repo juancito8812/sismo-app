@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:flutter_map/flutter_map.dart';
 import '../data/earthquake.dart';
@@ -14,6 +15,7 @@ class MapScreen extends StatefulWidget {
 
 class _MapScreenState extends State<MapScreen> {
   late final Future<List<Earthquake>> _events;
+  List<Earthquake> _clustered = const [];
 
   // Clustering simple: agrupa eventos a menos de 1 grado
   List<Earthquake> _cluster(List<Earthquake> events) {
@@ -56,7 +58,10 @@ class _MapScreenState extends State<MapScreen> {
   @override
   void initState() {
     super.initState();
-    _events = LocalDb.instance.recent(limit: 200);
+    _events = LocalDb.instance.recent(limit: 200).then((events) {
+      _clustered = _cluster(events);
+      return events;
+    });
   }
 
   @override
@@ -78,7 +83,8 @@ class _MapScreenState extends State<MapScreen> {
             return const Center(child: Text('Sin eventos registrados'));
           }
 
-          final clustered = _cluster(events);
+          // Usar clustering cachead (calculado en initState)
+          final clustered = _clustered;
 
           // Calcular centro dinámico
           double avgLat2 = 0, avgLon2 = 0;
@@ -104,6 +110,7 @@ class _MapScreenState extends State<MapScreen> {
                         height: _markerSize(e.magnitude) + 8,
                         child: GestureDetector(
                           onTap: () {
+                            HapticFeedback.lightImpact();
                             Navigator.push(context,
                               MaterialPageRoute(builder: (_) => EventDetailScreen(event: e)));
                           },
