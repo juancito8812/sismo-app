@@ -69,6 +69,8 @@ Esto publica:
 - `pollUsgsAndPush` — scheduler cada 5 min: consulta USGS (bbox de
   Venezuela, M ≥ 2.5), dedupe en Firestore y push al tópico.
 - `ping` — callable de prueba para validar el deploy.
+- `sendTestQuake` — publica un sismo de prueba para verificar el pipeline
+  completo (dedupe → FCM → notificación) sin esperar un temblor real.
 
 ## Paso 3 — Verificar
 
@@ -77,6 +79,36 @@ Esto publica:
 3. Consola Firebase → Firestore: ante un sismo nuevo debe aparecer el doc en
    `pushedQuakes`.
 4. Logs de la función: `firebase functions:log` — buscá `pushed`.
+
+### Probar el pipeline completo (sendTestQuake)
+
+Sin esperar un sismo real, dispará una prueba end-to-end:
+
+```bash
+PROJECT_ID=$(firebase use 2>/dev/null | head -1 | sed 's/^[A-Za-z]* //')
+curl -s -X POST \
+  "https://us-central1-${PROJECT_ID}.cloudfunctions.net/sendTestQuake" \
+  -H "Content-Type: application/json" \
+  -d '{"data": {}}'
+```
+
+En el dispositivo (con la app abierta o cerrada) deben llegar **dos
+notificaciones**: `Sismo detectado M4.0` y luego `Sismo revisado: M4.6 (era
+M4.0)` — la segunda ejercita el camino de revisión con el campo
+`revisedFrom`. La respuesta del curl muestra el resultado de cada paso
+(`first` y `revision`); si algún paso devuelve `skipped`, el motivo está en
+el campo (`duplicate`, `stale`, `fcm_error`).
+
+Variantes:
+
+- Solo primera alerta (sin revisión): `'{"data": {"revision": false}}'`
+- Con otra magnitud: `'{"data": {"revision": false, "mag": 3.2}}'`
+
+Los sismos de prueba usan ids `test-...` y quedan en el historial local;
+borralos con **Ajustes → Limpiar DB**. Para bloquear la función a terceros,
+creá `functions/.env` con `TEST_SECRET=tu-secreto`, redeployá y pasá
+`"secret": "..."` en el body (además del header de autenticación que la
+API callable exige con llamadas no anónimas).
 
 ## Costos
 
@@ -95,3 +127,6 @@ sigue siendo despreciable para este volumen.
 - `ttl: 1h`: un sismo viejo no despierta al usuario horas después.
 - El fetch de USGS usa `orderby=time-asc` y una ventana de 10 min para no
   perder eventos entre ciclos.
+- `sendTestQuake` reusa exactamente el mismo pipeline que el scheduler
+  (validación → dedupe transaccional → FCM → rollback), así que la prueba
+  no tiene atajos: si suena la prueba, suena el temblor real.
