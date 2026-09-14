@@ -82,6 +82,96 @@ class LocalDb {
     await db.update('events', {'notified': value}, where: 'id = ?', whereArgs: [id]);
   }
 
+  /// Upsert que preserva el flag [notified] existente: si el evento ya estaba
+  /// en la DB conserva si fue notificado; solo eventos nuevos arrancan en 0.
+  Future<void> upsertNotified(Earthquake event) async {
+    final db = await database;
+    final existing = await db.query(
+      'events',
+      columns: ['notified'],
+      where: 'id = ?',
+      whereArgs: [event.id],
+      limit: 1,
+    );
+    final notified = existing.isNotEmpty
+        ? (existing.first['notified'] as int? ?? 0)
+        : event.notified;
+    await db.insert(
+      'events',
+      {
+        'id': event.id,
+        'magnitude': event.magnitude,
+        'place': event.place,
+        'time': event.time.millisecondsSinceEpoch,
+        'latitude': event.latitude,
+        'longitude': event.longitude,
+        'depth_km': event.depthKm,
+        'source': event.source,
+        'notified': notified,
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  /// Ids de eventos candidatos a alerta: no notificados y dentro de la
+  /// ventana de frescura [maxAge].
+  Future<Set<String>> pendingAlertIds({Duration maxAge = const Duration(hours: 6)}) async {
+    final db = await database;
+    final cutoff = DateTime.now().subtract(maxAge).millisecondsSinceEpoch;
+    final rows = await db.query(
+      'events',
+      columns: ['id'],
+      where: 'notified = 0 AND time >= ?',
+      whereArgs: [cutoff],
+    );
+    return rows.map((r) => r['id'] as String).toSet();
+  }
+
+  /// Busca un evento por id (null si no existe). Usado por el push para la
+  /// deduplicación cruzada contra lo ya notificado por el polling.
+  Future<Earthquake?> byId(String id) async {
+    final db = await database;
+    final rows = await db.query('events', where: 'id = ?', whereArgs: [id], limit: 1);
+    if (rows.isEmpty) return null;
+    return _rowToEarthquake(rows.first);
+  }
+
+  /// Busca varios eventos por id en una sola query. Devuelve un mapa
+  /// id → evento con los que existan. Usado para comparar el feed contra
+  /// el estado previo y detectar revisiones de USGS.
+  Future<Map<String, Earthquake>> byIds(Iterable<String> ids) async {
+    final db = await database;
+    final out = <String, Earthquake>{};
+    final idList = ids.toSet().toList();
+    // SQLite tiene un límite de variables por query (~999); troceamos por
+    // seguridad aunque el feed normalmente traiga ≤ 200 eventos.
+    const chunkSize = 500;
+    for (var i = 0; i < idList.length; i += chunkSize) {
+      final chunk = idList.sublist(
+        i,
+        i + chunkSize > idList.length ? idList.length : i + chunkSize,
+      );
+      final placeholders = List.filled(chunk.length, '?').join(',');
+      final rows = await db.query(
+        'events',
+        where: 'id IN ($placeholders)',
+        whereArgs: chunk,
+      );
+      for (final r in rows) {
+        final eq = _rowToEarthquake(r);
+        out[eq.id] = eq;
+      }
+    }
+    return out;
+  }
+
+  /// Poda eventos más viejos que [keep] para que la DB no crezca indefinida.
+  Future<void> pruneOldEvents({Duration keep = const Duration(days: 90)}) async {
+    final db = await database;
+    final cutoff = DateTime.now().subtract(keep).millisecondsSinceEpoch;
+    await db.delete('events', where: 'time < ?', whereArgs: [cutoff]);
+  }
+
   /// Convierte una fila de la DB a [Earthquake].
   static Earthquake _rowToEarthquake(Map<String, dynamic> r) {
     return Earthquake(
@@ -141,6 +231,18 @@ class LocalDb {
     final db = await database;
     final result = await db.rawQuery(
       'SELECT COUNT(*) as count FROM events WHERE notified = 0',
+    );
+    return (result.first['count'] as int? ?? 0);
+  }
+
+  /// Cantidad de eventos ocurridos desde [sinceEpochMs].
+  Future<int> countSince({required int sinceEpochMs}) async {
+    final db = await database;
+    final result = await db.query(
+      'events',
+      columns: ['COUNT(*) AS count'],
+      where: 'time >= ?',
+      whereArgs: [sinceEpochMs],
     );
     return (result.first['count'] as int? ?? 0);
   }

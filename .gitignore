@@ -23,6 +23,13 @@ android/captures/
 android/app/release/
 android/app/debug/
 
+# Firebase
+functions/node_modules/
+functions/*.log
+firebase-debug.log
+firebase-debug.*.log
+.firestore/
+
 # IDE
 .idea/
 .vscode/

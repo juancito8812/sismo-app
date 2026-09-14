@@ -8,10 +8,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
-import 'package:workmanager/workmanager.dart';
 import '../data/local_db.dart';
 import '../data/repository.dart';
-import '../services/background_poller.dart';
+import '../services/alert_engine.dart';
+import '../services/push_notification_service.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -23,6 +23,8 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   double _minMagnitude = 3.0;
   int _pollInterval = 15;
+  bool _alertsEnabled = true;
+  double _alertMinMag = kDefaultAlertMinMagnitude;
   int _dateFilter = 0;
   String _sourceFilter = 'Todas';
   bool _exporting = false;
@@ -78,12 +80,43 @@ class _SettingsScreenState extends State<SettingsScreen> {
               icon: const Icon(Icons.filter_alt), label: const Text('Aplicar filtros')),
           ]),
 
+          _section(theme, Icons.notifications_active, 'Alertas', [
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Alertas activadas'),
+              subtitle: const Text('Notificá sismos que superen el umbral'),
+              value: _alertsEnabled,
+              onChanged: (v) {
+                setState(() => _alertsEnabled = v);
+                _saveAlertSettings();
+              },
+            ),
+            Text('Umbral de alerta: M${_alertMinMag.toStringAsFixed(1)}'),
+            Slider(
+              value: _alertMinMag,
+              min: 2.0,
+              max: 7.0,
+              divisions: 10,
+              label: 'M${_alertMinMag.toStringAsFixed(1)}',
+              onChangeEnd: (_) => _saveAlertSettings(),
+              onChanged: (v) => setState(() => _alertMinMag = v),
+            ),
+            Text(
+              _pushStatus,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ]),
+
           _section(theme, Icons.sync, 'Background', [
             Text('Intervalo de polling: $_pollInterval min'),
-            Slider(value: _pollInterval.toDouble(), min: 5, max: 60, divisions: 11,
+            Slider(value: _pollInterval.toDouble(), min: 15, max: 60, divisions: 9,
               label: '$_pollInterval min',
               onChangeEnd: (v) => _savePollInterval(v.round()),
               onChanged: (v) => setState(() => _pollInterval = v.round())),
+            Text('Android no permite tareas en background más seguidas que cada 15 minutos.',
+              style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
           ]),
 
           _section(theme, Icons.storage, 'Datos', [
@@ -292,6 +325,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _loadPackageInfo();
     _loadPollInterval();
     _loadFilters();
+    _loadAlertSettings();
+    _loadPushStatus();
+  }
+
+  String get _pushStatus {
+    final token = _pushToken;
+    if (token == null || token.isEmpty) return 'Alertas instantáneas: no activas';
+    return 'Alertas instantáneas activas';
+  }
+
+  String? _pushToken;
+
+  Future<void> _loadPushStatus() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (mounted) {
+      setState(() => _pushToken = prefs.getString(kPushTokenKey));
+    }
   }
 
   Future<void> _loadFilters() async {
@@ -312,24 +362,32 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _loadPollInterval() async {
     final prefs = await SharedPreferences.getInstance();
-    setState(() => _pollInterval = prefs.getInt('poll_interval') ?? 15);
+    // Clamp: versiones viejas guardaban valores < 15 (Slider requiere min 15).
+    setState(() => _pollInterval = (prefs.getInt('poll_interval') ?? 15).clamp(15, 60));
   }
 
   Future<void> _savePollInterval(int minutes) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt('poll_interval', minutes);
-    // Re-registrar Workmanager con nuevo intervalo
+    // Android no ejecuta tareas periódicas con menos de 15 minutos.
+    await prefs.setInt('poll_interval', minutes < 15 ? 15 : minutes);
+    // Re-registrar Workmanager con el nuevo intervalo
     try {
-      await Workmanager().cancelAll();
-      await Workmanager().registerPeriodicTask(
-        'sismos.background', kBackgroundChannel,
-        frequency: Duration(minutes: minutes),
-        constraints: Constraints(
-          networkType: NetworkType.connected,
-          requiresBatteryNotLow: true,
-        ),
-      );
+      await AlertEnginePolling.configure(force: true);
     } catch (_) {}
+  }
+
+  Future<void> _loadAlertSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _alertsEnabled = prefs.getBool(kAlertsEnabledKey) ?? true;
+      _alertMinMag = prefs.getDouble(kAlertMinMagnitudeKey) ?? kDefaultAlertMinMagnitude;
+    });
+  }
+
+  Future<void> _saveAlertSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(kAlertsEnabledKey, _alertsEnabled);
+    await prefs.setDouble(kAlertMinMagnitudeKey, _alertMinMag);
   }
 
   Future<String> _safeVersionTag(String tag) {

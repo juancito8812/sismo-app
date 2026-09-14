@@ -1,0 +1,30 @@
+{
+  "_comment": "PLACEHOLDER - reemplazar por el google-services.json real del proyecto Firebase (ver PUSH_SETUP.md). Es estructuralmente válido para que el build no falle, pero las credenciales son de ejemplo.",
+  "project_info": {
+    "project_number": "000000000000",
+    "project_id": "sismo-ve-placeholder",
+    "storage_bucket": "sismo-ve-placeholder.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:000000000000:android:0000000000000000000000",
+        "android_client_info": {
+          "package_name": "com.juancito8812.sismo_ve"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyPLACEHOLDERREPLACEWITHREALKEY000"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

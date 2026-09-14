@@ -1,8 +1,7 @@
 import 'package:workmanager/workmanager.dart';
-import '../data/local_db.dart';
-import '../data/repository.dart';
-import '../services/notification_service.dart';
+import '../services/alert_engine.dart';
 
+/// Canal/tarea de WorkManager (referenciado por alert_engine).
 const kBackgroundChannel = 'sismos.background';
 
 // Dispatcher de WorkManager (debe ser top-level)
@@ -11,7 +10,9 @@ void callbackDispatcher() {
   Workmanager().executeTask((task, inputData) async {
     if (task == kBackgroundChannel) {
       try {
-        await _checkAndNotify();
+        final notified = await AlertEngine.instance.runCheck();
+        // ignore: avoid_print
+        print('[background_poller] ciclo OK, $notified alerta(s) emitida(s)');
       } catch (e) {
         // evitar crash en background
         // ignore: avoid_print
@@ -21,29 +22,4 @@ void callbackDispatcher() {
     }
     return Future.value(false);
   });
-}
-
-Future<void> _checkAndNotify() async {
-  final repo = EarthquakeRepository();
-  final db = LocalDb.instance;
-  final notifier = NotificationService.instance;
-  await notifier.init();
-
-  final events = await repo.fetchRecent();
-  final saved = await db.recent();
-
-  final unNotifiedIds =
-      saved.where((e) => e.notified == 0).map((e) => e.id).toSet();
-  for (var eq in events) {
-    final alreadyNotified = !unNotifiedIds.contains(eq.id);
-    if (!alreadyNotified && eq.magnitude >= 3) {
-      await notifier.showSismoAlert(
-        id: eq.id.hashCode & 0x7FFFFFFF,
-        title: 'Sismo detectado M${eq.magnitude.toStringAsFixed(1)}',
-        body: eq.place,
-      );
-      await db.markNotified(eq.id);
-    }
-    await db.insertOrUpdate(eq);
-  }
 }

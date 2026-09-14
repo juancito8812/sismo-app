@@ -9,8 +9,10 @@ App Android de alertas sísmicas para Venezuela — monitoreo local 100% offline
 
 ### 📡 Monitoreo sísmico
 - **Sismología en tiempo real** — consume el feed USGS filtrado para Venezuela
-- **Notificaciones push** — alerta automática para sismos M ≥ 3.0
-- **Polling en background** — cada 15 minutos via Workmanager
+- **Notificaciones push** — alerta automática con umbral configurable (por defecto M ≥ 3.0), sonido de alarma y vibración SOS
+- **Revisiones de USGS** — si la magnitud de un sismo ya notificado sube ≥ +0.5 o cruza tu umbral, se actualiza el historial y se re-alerta con el detalle de la revisión
+- **Alertas instantáneas (FCM)** — push real vía Firebase Cloud Messaging: latencia de minutos en vez de 15+; sin configuración, degrada a polling. Ver [PUSH_SETUP.md](PUSH_SETUP.md)
+- **Monitoreo en vivo** — mientras la app está abierta, chequeo cada 2 minutos; en background, cada 15 via Workmanager
 - **Lista de eventos** — colores por magnitud, badge de nuevos, pull-to-refresh
 - **Mapa** — visualización geográfica con marcadores por magnitud (flutter_map)
 - **Detalle del evento** — profundidad, coordenadas, fuente, mapa embedido
@@ -48,11 +50,13 @@ App Android de alertas sísmicas para Venezuela — monitoreo local 100% offline
 | Maps | flutter_map + OpenStreetMap |
 | DB local | SQLite (sqflite) |
 | Notificaciones | flutter_local_notifications |
+| Push | Firebase Cloud Messaging (firebase_core + firebase_messaging) |
+| Backend | Cloud Functions (Node 20) + Firestore dedupe |
 | Background | workmanager |
 | Persistencia | shared_preferences |
 | Llamadas | url_launcher |
 | Export | csv + path_provider |
-| Fuente sismológica | USGS Earthquake API + FUNVISIS scraping |
+| Fuente sismológica | USGS Earthquake API |
 
 ## Requisitos
 
@@ -88,7 +92,7 @@ flutter build apk --release --no-shrink
 
 ```
 lib/
-├── main.dart                           # Entry point + Workmanager
+├── main.dart                           # Entry point + Workmanager + FCM
 ├── data/
 │   ├── earthquake.dart                 # Modelo + color helper
 │   ├── local_db.dart                   # SQLite singleton + migración
@@ -107,9 +111,14 @@ lib/
 │   ├── first_aid.dart                  # Primeros auxilios offline
 │   └── risk_zones.dart                 # Mapa de zonas de riesgo
 └── services/
+    ├── alert_engine.dart               # Lógica de alertas + monitoreo vivo
     ├── background_poller.dart          # Worker periódico en background
+    ├── push_notification_service.dart  # FCM: push + dedupe + taps
     └── notification_service.dart       # Notificaciones locales
 ```
+
+Además: `functions/` (backend Cloud Functions) y `firebase.json`.
+Setup de Firebase en [PUSH_SETUP.md](PUSH_SETUP.md).
 
 ## Permisos Android
 
@@ -125,12 +134,13 @@ lib/
 - [x] Background polling + notificaciones push
 - [x] Mapa con marcadores + detalle del evento
 - [x] Filtros inline + ajustes + export CSV
-- [x] Seed histórico USGS + scraping FUNVISIS
+- [x] Seed histórico USGS
 - [x] Guía de seguridad + kit emergencia + contactos VE
 - [x] Linterna SOS + plan familiar + reportar sismo
 - [x] Primeros auxilios + zonas de riesgo
 - [x] Auto-update checker desde GitHub Releases
 - [x] CI/CD: GitHub Actions build + release automático
+- [x] Push instantáneo con FCM (Cloud Functions + tópico)
 - [ ] Firma APK + Google Play
 
 ## Licencia

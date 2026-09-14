@@ -1,38 +1,50 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:sismo_ve/screens/home.dart';
-import 'package:workmanager/workmanager.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:sismo_ve/services/background_poller.dart';
+import 'package:sismo_ve/services/alert_engine.dart';
+import 'package:sismo_ve/services/notification_service.dart';
+import 'package:sismo_ve/services/push_notification_service.dart';
 
-void main() async {
+/// Handler de mensajes FCM en background/terminated (top-level requerido
+/// por firebase_messaging).
+@pragma('vm:entry-point')
+Future<void> _firebaseBackgroundHandler(RemoteMessage message) =>
+    firebaseMessagingBackgroundHandler(message);
+
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Leer intervalo guardado (Settings puede haberlo cambiado)
-  final prefs = await SharedPreferences.getInstance();
-  final pollMinutes = prefs.getInt('poll_interval') ?? 15;
-
+  // Canal de notificaciones lo antes posible: si un push llega con la app
+  // cerrada, la notificación local necesita el canal (y su sonido) ya creado.
   try {
-    await Workmanager().initialize(
-      callbackDispatcher,
-      isInDebugMode: false,
-    );
-    await Workmanager().cancelAll();
-    await Workmanager().registerPeriodicTask(
-      'sismos.background',
-      kBackgroundChannel,
-      frequency: Duration(minutes: pollMinutes),
-      constraints: Constraints(
-        networkType: NetworkType.connected,
-        requiresBatteryNotLow: true,
-      ),
-    );
+    await NotificationService.instance.init();
+    await NotificationService.instance.ensureChannels();
+  } catch (e) {
     // ignore: avoid_print
-    print('[main] Workmanager initialized (interval: ${pollMinutes}min)');
+    print('[main] notificaciones init error (non-fatal): $e');
+  }
+
+  // Push vía FCM (tolerante a fallos: sin Firebase configurado, la app
+  // funciona igual con el polling del AlertEngine).
+  try {
+    FirebaseMessaging.onBackgroundMessage(_firebaseBackgroundHandler);
+    await PushNotificationService.instance.initialize();
+  } catch (e) {
+    // ignore: avoid_print
+    print('[main] push init error (non-fatal): $e');
+  }
+
+  // Registra el polling en background (no cancela el schedule existente:
+  // cambiar el intervalo en Ajustes lo re-registra con la política update).
+  try {
+    await AlertEnginePolling.configure();
   } catch (e) {
     // Si Workmanager falla (ej. permisos no concedidos), la app igual arranca
     // ignore: avoid_print
     print('[main] Workmanager init error (non-fatal): $e');
   }
+  // Monitoreo en vivo mientras la app está abierta (más rápido que el poller).
+  await AlertEngine.instance.startLiveMonitoring();
   runApp(const SismosApp());
 }
 

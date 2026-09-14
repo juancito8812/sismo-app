@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../data/local_db.dart';
 import '../data/earthquake.dart';
+import '../services/alert_engine.dart';
+import '../services/push_notification_service.dart';
 import 'event_detail.dart';
 import 'map_screen.dart';
 import 'settings_screen.dart';
@@ -30,8 +33,11 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    PushNotificationService.onTapNotification = _onTapPushNotification;
     _future = _load();
   }
+
+  static const _lastSeenKey = 'last_seen_events';
 
   Future<List<Earthquake>> _load() async {
     int? sinceMs;
@@ -47,15 +53,48 @@ class _HomeScreenState extends State<HomeScreen> {
       source: _source == 'Todas' ? null : _source,
       limit: 200,
     );
-    final count = await LocalDb.instance.unnotifiedCount();
+    // Badge "nuevo(s)": eventos llegados desde la última visita.
+    final lastSeen = await _lastSeenMs();
+    final count = await LocalDb.instance.countSince(sinceEpochMs: lastSeen);
     if (mounted) setState(() => _newCount = count);
     return items;
   }
 
+  Future<int> _lastSeenMs() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!prefs.containsKey(_lastSeenKey)) {
+      final now = DateTime.now().millisecondsSinceEpoch;
+      await prefs.setInt(_lastSeenKey, now);
+      return now;
+    }
+    return prefs.getInt(_lastSeenKey) ?? 0;
+  }
+
   Future<void> _refresh() async {
+    // Pull-to-refresh también trae eventos nuevos de inmediato.
+    await AlertEngine.instance.syncEvents();
     final latest = await _load();
     if (!mounted) return;
     setState(() => _future = Future.value(latest));
+  }
+
+  /// Abre el detalle del sismo notificado por push; si el evento ya no está
+  /// en la DB (fue podado), simplemente recarga la lista.
+  Future<void> _onTapPushNotification() async {
+    // Firebase puede no haberse inicializado aún (notificación obtenida
+    // durante el arranque, antes de initialize()); forzamos el init.
+    await PushNotificationService.instance.initialize();
+    if (!mounted) return;
+    final payload = PushNotificationService.instance.initialNotificationPayload;
+    PushNotificationService.instance.clearInitialNotificationPayload();
+    if (payload == null) return;
+    final eq = await LocalDb.instance.byId(payload.id);
+    if (!mounted) return;
+    if (eq != null) {
+      _openDetail(eq);
+    } else {
+      setState(() => _future = _load());
+    }
   }
 
   void _openDetail(Earthquake e) {
@@ -91,9 +130,10 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  void _dismissNews() {
+  Future<void> _dismissNews() async {
     setState(() => _newCount = 0);
-    LocalDb.instance.clearNotified();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_lastSeenKey, DateTime.now().millisecondsSinceEpoch);
   }
 
   @override

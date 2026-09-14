@@ -1,10 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:sismo_ve/main.dart';
 import 'package:sismo_ve/data/earthquake.dart';
 
 void main() {
+  setUpAll(() {
+    // Home lee SharedPreferences (badge de "nuevos") — necesario en tests.
+    SharedPreferences.setMockInitialValues({});
+  });
+
   group('Earthquake model', () {
     test('fromJson parses correctly', () {
       final json = {
