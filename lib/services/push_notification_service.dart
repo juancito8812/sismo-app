@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -229,6 +230,47 @@ class PushNotificationService {
       }
     } catch (_) {
       // El token es informativo; si falla no afecta la recepción.
+    }
+  }
+
+  /// Dispara el sismo de prueba vía la Cloud Function `sendTestQuake`.
+  /// Devuelve un resumen legible del resultado para mostrar en la UI.
+  ///
+  /// [withRevision] en true (default) publica M4.0 + revisión M4.6 y
+  /// ejercita además el camino de re-alerta; en false, una alerta simple.
+  Future<String> sendTestQuake({bool withRevision = true}) async {
+    if (!_initialized) await initialize();
+    if (!_initialized) {
+      return 'Firebase no está configurado (¿copiaste el '
+          'google-services.json real?)';
+    }
+    try {
+      final callable = FirebaseFunctions.instanceFor(
+        region: 'us-central1',
+      ).httpsCallable('sendTestQuake');
+      final res = await callable
+          .call(<String, dynamic>{'revision': withRevision})
+          .timeout(const Duration(seconds: 30));
+      final data = res.data as Map<String, dynamic>? ?? const {};
+      if (withRevision) {
+        final first = data['first'] as Map<String, dynamic>?;
+        final rev = data['revision'] as Map<String, dynamic>?;
+        final okBoth = first?['id'] != null && rev?['id'] != null;
+        return okBoth
+            ? 'Prueba enviada: M4.0 + revisión M4.6. Deberían llegar '
+                'dos notificaciones en un par de minutos.'
+            : 'Respuesta del backend incompleta: $data';
+      }
+      final out = data['result'] as Map<String, dynamic>?;
+      if (out?['id'] != null) {
+        return 'Prueba enviada: M${out?['mag']}. Debería llegar una '
+            'notificación en un par de minutos.';
+      }
+      return 'El backend no publicó el sismo: ${out ?? data}';
+    } on FirebaseFunctionsException catch (e) {
+      return 'Error del backend (${e.code}): ${e.message ?? e.details ?? ''}';
+    } catch (e) {
+      return 'Error llamando a sendTestQuake: $e';
     }
   }
 

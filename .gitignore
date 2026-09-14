@@ -35,6 +35,10 @@ firebase-debug.*.log
 .vscode/
 *.iml
 
+# Metadatos del cliente Freebuff (agentes locales)
+.agents/
+.freebuff/
+
 # Sistema
 .DS_Store
 Thumbs.db

@@ -107,6 +107,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
+            const SizedBox(height: 4),
+            OutlinedButton.icon(
+              onPressed: _testing ? null : _sendTestQuake,
+              icon: _testing
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Icon(Icons.bug_report),
+              label: const Text('Probar alerta push')),
+            if (_testResult != null)
+              Text(
+                _testResult!,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
           ]),
 
           _section(theme, Icons.sync, 'Background', [
@@ -336,6 +353,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   String? _pushToken;
+  bool _testing = false;
+  String? _testResult;
+
+  /// Dispara un sismo de prueba vía la Cloud Function sendTestQuake y
+  /// muestra el resultado bajo el botón.
+  Future<void> _sendTestQuake() async {
+    setState(() {
+      _testing = true;
+      _testResult = null;
+    });
+    try {
+      final msg = await PushNotificationService.instance.sendTestQuake();
+      if (mounted) setState(() => _testResult = msg);
+    } catch (e) {
+      if (mounted) setState(() => _testResult = 'Error: $e');
+    } finally {
+      if (mounted) setState(() => _testing = false);
+    }
+  }
 
   Future<void> _loadPushStatus() async {
     final prefs = await SharedPreferences.getInstance();
