@@ -132,6 +132,60 @@ Variantes:
 Los sismos de prueba usan ids `test-...` y quedan en el historial local;
 borralos con **Ajustes → Limpiar DB**.
 
+## Paso 4 — App Check (protección anti-abuso)
+
+App Check exige que cada llamada a las **callables** (`ping`,
+`sendTestQuake`) venga de una app legítima (tu build con tu
+`google-services.json`). El scheduler no necesita nada: corre con la cuenta
+de servicio del proyecto.
+
+> **Qué protege y qué no:** las callables quedan cubiertas. La publicación
+> FCM al tópico **no se puede exigir con App Check** (Firebase no lo soporta
+> para envíos por tópico), pero ya está protegida de facto: solo la Cloud
+> Function (cuenta de servicio) publica al tópico — nadie desde afuera
+> puede mandar push.
+
+### Configuración en la consola (una vez)
+
+1. **Firebase Console → App Check → Apps → tu app Android → Registrar**.
+   - Provider: **Play Integrity**. Requiere la app firmada con la SHA-256
+     que tengas cargada (Play Console, o *Project Settings → Your apps →
+     Add fingerprint* para distribuir APKs fuera de Play).
+2. **Registrar los builds debug**: el código usa el provider *debug* en
+   debug (`kDebugMode`) y Play Integrity en release. Corré un build debug,
+   buscá en el logcat el token de debug (`Debug App Check token`), y
+   registralo en **App Check → Apps → Manage debug tokens**.
+3. Listo del lado del cliente: la app activa App Check sola al arrancar
+   (`AppCheckService`, best-effort: si falla, la app funciona igual).
+
+### Despliegue en modo monitor → enforced
+
+El backend ya registra App Check en las callables. El enforcement se
+controla con `functions/.env`:
+
+```bash
+# 1) Monitor (default): loggea requests sin token, no rechaza nada.
+#    Dejá correr un par de días y verificá en App Check → Métricas que
+#    tus builds reportan requests verificadas y casi ninguna no verificada.
+
+# 2) Enforced: rechaza requests sin token válido.
+#    functions/.env
+ENFORCE_APP_CHECK=true
+```
+
+Redesplegá después de cambiar el `.env`:
+`npx firebase-tools@latest deploy --only functions`.
+
+Con enforcement activo, un `curl` a las callables recibe `unauthenticated`
+(solo requests desde la app con token válido pasan). Para probar desde
+`sendTestQuake` por curl manteniendo el enforcement, desactivá
+`ENFORCE_APP_CHECK` temporalmente o usá el botón **Ajustes → Probar alerta
+push** (la app manda su token solo).
+
+⚠ El **token de debug** es un secreto de desarrollo: da acceso a las
+callables en modo monitor/enforced desde un build debug. No lo compartas y
+borralo de la consola si deja de usarse.
+
 ## Costos
 
 En el plan **Spark (gratis)**: scheduler 5 min (~8.6k ejecuciones/mes) y
@@ -152,3 +206,7 @@ sigue siendo despreciable para este volumen.
 - `sendTestQuake` reusa exactamente el mismo pipeline que el scheduler
   (validación → dedupe transaccional → FCM → rollback), así que la prueba
   no tiene atajos: si suena la prueba, suena el temblor real.
+- Las callables exigen **App Check** cuando `ENFORCE_APP_CHECK=true`
+  (functions/.env); en modo monitor solo loggean. El envío FCM por tópico
+  no admite enforcement de App Check, pero solo la función (cuenta de
+  servicio) puede publicar.

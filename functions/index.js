@@ -20,6 +20,28 @@ initializeApp();
 // Régimen de costos por invocación (default). Región cerca de USGS/Caracas.
 setGlobalOptions({ region: "us-central1", maxInstances: 2 });
 
+// App Check: si es true, las callables rechazan requests sin token válido.
+// Activalo recién cuando verifiques en la consola (App Check → Métricas) que
+// tus builds reportan >0 requests verificadas, para no autoexcluirte.
+// Se define vía functions/.env: ENFORCE_APP_CHECK=true
+const ENFORCE_APP_CHECK = process.env.ENFORCE_APP_CHECK === "true";
+
+/**
+ * Puerta de App Check compartida por las callables. En modo monitor solo
+ * loggea; en enforced lanza unauthenticated. Los datos del request de App
+ * Check llegan como request.app (null si el token faltaba o era inválido).
+ */
+function requireAppCheck(request) {
+  if (request.app) return;
+  const msg =
+    "Falta token de App Check (¿compilaste con google-services.json real?)";
+  if (ENFORCE_APP_CHECK) {
+    logger.warn("appcheck: rejected", { enforced: true });
+    throw new HttpsError("unauthenticated", msg);
+  }
+  logger.warn("appcheck: request sin token válido (modo monitor)", {});
+}
+
 const TOPIC = "sismos_ve";
 // Debe coincidir con kVenezuelaMinLat/MaxLat/MinLon/MaxLon de earthquake.dart.
 const BBOX = { minLat: -5, maxLat: 15, minLon: -75, maxLon: -60 };
@@ -224,7 +246,8 @@ exports.pollUsgsAndPush = onSchedule(SCHEDULE_EVERY, async (event) => {
  * RPC llamada desde la app para validar la configuración del backend
  * (disponible también en los emuladores).
  */
-exports.ping = onCall(async () => {
+exports.ping = onCall(async (request) => {
+  requireAppCheck(request);
   return { ok: true, topic: TOPIC };
 });
 
@@ -250,6 +273,7 @@ exports.ping = onCall(async () => {
  * dispositivo; limpialos con Ajustes → Limpiar DB.
  */
 exports.sendTestQuake = onCall(async (request) => {
+  requireAppCheck(request);
   const secret = process.env.TEST_SECRET || "";
   if (!secret) {
     throw new HttpsError(

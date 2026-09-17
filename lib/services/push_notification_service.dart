@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../data/earthquake.dart';
 import '../data/local_db.dart';
 import '../services/alert_engine.dart';
+import '../services/app_check_service.dart';
 import '../services/notification_service.dart';
 
 /// Tópico FCM al que se suscriben todos los dispositivos. El backend publica
@@ -180,6 +181,10 @@ class PushNotificationService {
       _initialized = false;
       return;
     }
+
+    // App Check antes de cualquier callable: el cliente adjunta el token
+    // automáticamente a cada llamada. Best-effort (ver PUSH_SETUP.md).
+    await AppCheckService.instance.activate();
 
     final messaging = FirebaseMessaging.instance;
 

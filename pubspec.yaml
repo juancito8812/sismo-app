@@ -12,6 +12,8 @@ dependencies:
   firebase_core: ^3.8.0
   firebase_messaging: ^15.1.5
   cloud_functions: ^5.4.4
+  # App Check: protege las callables de abuso (ver PUSH_SETUP.md → App Check)
+  firebase_app_check: ^0.3.0
   sqflite: ^2.3.0
   path: ^1.9.0
   flutter_local_notifications: ^17.0.0
