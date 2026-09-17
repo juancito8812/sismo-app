@@ -26,6 +26,7 @@ android/app/debug/
 # Firebase
 functions/node_modules/
 functions/*.log
+functions/.env
 firebase-debug.log
 firebase-debug.*.log
 .firestore/

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../data/local_db.dart';
@@ -34,6 +36,13 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     PushNotificationService.onTapNotification = _onTapPushNotification;
+    // Cold start desde una notificación (push o local): el id ya fue
+    // capturado en main()/initialize(); consumirlo y abrir el detalle.
+    final initialId = PushNotificationService.instance.initialQuakeId;
+    if (initialId != null) {
+      PushNotificationService.instance.clearInitialQuakeId();
+      unawaited(_openQuakeFromNotification(initialId));
+    }
     _future = _load();
   }
 
@@ -78,23 +87,25 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() => _future = Future.value(latest));
   }
 
-  /// Abre el detalle del sismo notificado por push; si el evento ya no está
-  /// en la DB (fue podado), simplemente recarga la lista.
-  Future<void> _onTapPushNotification() async {
-    // Firebase puede no haberse inicializado aún (notificación obtenida
-    // durante el arranque, antes de initialize()); forzamos el init.
-    await PushNotificationService.instance.initialize();
-    if (!mounted) return;
-    final payload = PushNotificationService.instance.initialNotificationPayload;
-    PushNotificationService.instance.clearInitialNotificationPayload();
-    if (payload == null) return;
-    final eq = await LocalDb.instance.byId(payload.id);
+  /// Abre el detalle del sismo cuya notificación fue tocada (push o local);
+  /// si el evento ya no está en la DB (fue podado), simplemente recarga la
+  /// lista. El id llega por [_onTapPushNotification] o por el cold start
+  /// (initialQuakeId, consumido en initState).
+  Future<void> _openQuakeFromNotification(String id) async {
+    final eq = await LocalDb.instance.byId(id);
     if (!mounted) return;
     if (eq != null) {
       _openDetail(eq);
     } else {
       setState(() => _future = _load());
     }
+  }
+
+  Future<void> _onTapPushNotification() async {
+    final id = PushNotificationService.instance.initialQuakeId;
+    PushNotificationService.instance.clearInitialQuakeId();
+    if (id == null) return;
+    await _openQuakeFromNotification(id);
   }
 
   void _openDetail(Earthquake e) {

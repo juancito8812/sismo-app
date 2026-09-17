@@ -32,6 +32,10 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^3.0.0
+  # SQLite real en tests (regresiones de dedupe sin dispositivo)
+  sqflite_common_ffi: ^2.3.0
+  # open.overrideFor: resolver libsqlite3.so.0 en entornos sin el symlink dev
+  sqlite3: ^2.4.0
 
 flutter:
   uses-material-design: true

@@ -1,5 +1,7 @@
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:sismo_ve/services/notification_service.dart';
 import 'package:sismo_ve/services/push_notification_service.dart';
 
 Map<String, String?> _payload({
@@ -23,6 +25,15 @@ Map<String, String?> _payload({
 }
 
 void main() {
+  setUp(() {
+    // Estado estático compartido entre tests: resetear para aislarlos.
+    PushNotificationService.onTapNotification = null;
+    NotificationService.onQuakeTap =
+        PushNotificationService.handleLocalNotificationTap;
+    NotificationService.pendingTapPayload = null;
+    PushNotificationService.instance.clearInitialQuakeId();
+  });
+
   group('parseQuakeData', () {
     test('parsea un payload completo del backend', () {
       final now = DateTime.now();
@@ -101,6 +112,72 @@ void main() {
 
     test('respeta el toggle de alertas desactivadas', () {
       expect(shouldNotifyPush(mag: 7.0, minMag: 3.0, enabled: false), isFalse);
+    });
+  });
+
+  group('ruteo de taps de notificaciones (Finding #1)', () {
+    test('un tap con router registrado notifica a la UI y guarda el id', () {
+      String? routedId;
+      PushNotificationService.onTapNotification = () async {
+        routedId = PushNotificationService.instance.initialQuakeId;
+      };
+      addTearDown(() => PushNotificationService.onTapNotification = null);
+
+      NotificationService.onQuakeTap!('us-tap-1');
+
+      expect(PushNotificationService.instance.initialQuakeId, 'us-tap-1');
+      expect(routedId, 'us-tap-1');
+    });
+
+    test('un tap sin router listo deja el id en espera (cold start)', () {
+      NotificationService.onQuakeTap = null;
+      NotificationService.handleTapResponse(
+        const NotificationResponse(
+          id: 1,
+          notificationResponseType:
+              NotificationResponseType.selectedNotification,
+          payload: 'us-tap-2',
+        ),
+      );
+
+      expect(NotificationService.pendingTapPayload, 'us-tap-2');
+      expect(
+        PushNotificationService.instance.initialQuakeId,
+        isNull,
+        reason: 'sin router, el id no debe perderse pero tampoco exponerse aún',
+      );
+
+      // La UI (initialize) drena el pendiente una sola vez: primero asigna
+      // el router, después consume el payload en espera.
+      NotificationService.onQuakeTap =
+          PushNotificationService.handleLocalNotificationTap;
+      final pending = NotificationService.pendingTapPayload!;
+      NotificationService.pendingTapPayload = null;
+      NotificationService.onQuakeTap!(pending);
+
+      expect(PushNotificationService.instance.initialQuakeId, 'us-tap-2');
+      expect(NotificationService.pendingTapPayload, isNull);
+    });
+
+    test('handleTapResponse ignora payload vacío', () {
+      NotificationService.handleTapResponse(
+        const NotificationResponse(
+          id: 1,
+          notificationResponseType:
+              NotificationResponseType.selectedNotification,
+          payload: '',
+        ),
+      );
+      expect(NotificationService.pendingTapPayload, isNull);
+      expect(PushNotificationService.instance.initialQuakeId, isNull);
+    });
+
+    test('clearInitialQuakeId evita abrir el detalle dos veces', () {
+      NotificationService.onQuakeTap!('us-tap-3');
+      expect(PushNotificationService.instance.initialQuakeId, 'us-tap-3');
+
+      PushNotificationService.instance.clearInitialQuakeId();
+      expect(PushNotificationService.instance.initialQuakeId, isNull);
     });
   });
 }

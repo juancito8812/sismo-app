@@ -84,33 +84,41 @@ class LocalDb {
 
   /// Upsert que preserva el flag [notified] existente: si el evento ya estaba
   /// en la DB conserva si fue notificado; solo eventos nuevos arrancan en 0.
+  ///
+  /// Atómico y seguro entre isolates (el polling corre en el isolate de
+  /// Workmanager y el push en el de FCM, contra la misma SQLite): UPDATE
+  /// primero y INSERT OR IGNORE después nunca escriben el flag en conflicto.
+  /// (Un INSERT ... replace con el flag leído antes pisaría un `notified = 1`
+  /// que otro isolate acaba de escribir, re-alertando el evento.)
   Future<void> upsertNotified(Earthquake event) async {
     final db = await database;
-    final existing = await db.query(
+    final row = {
+      'id': event.id,
+      'magnitude': event.magnitude,
+      'place': event.place,
+      'time': event.time.millisecondsSinceEpoch,
+      'latitude': event.latitude,
+      'longitude': event.longitude,
+      'depth_km': event.depthKm,
+      'source': event.source,
+      'notified': event.notified,
+    };
+    // El UPDATE NUNCA incluye 'notified': su valor es responsabilidad de
+    // quien marca (markNotified). Solo el INSERT (fila nueva) lo escribe.
+    final updateRow = Map<String, Object?>.of(row)..remove('notified');
+    final batch = db.batch();
+    batch.update(
       'events',
-      columns: ['notified'],
+      updateRow,
       where: 'id = ?',
       whereArgs: [event.id],
-      limit: 1,
     );
-    final notified = existing.isNotEmpty
-        ? (existing.first['notified'] as int? ?? 0)
-        : event.notified;
-    await db.insert(
+    batch.insert(
       'events',
-      {
-        'id': event.id,
-        'magnitude': event.magnitude,
-        'place': event.place,
-        'time': event.time.millisecondsSinceEpoch,
-        'latitude': event.latitude,
-        'longitude': event.longitude,
-        'depth_km': event.depthKm,
-        'source': event.source,
-        'notified': notified,
-      },
-      conflictAlgorithm: ConflictAlgorithm.replace,
+      row,
+      conflictAlgorithm: ConflictAlgorithm.ignore,
     );
+    await batch.commit(noResult: true);
   }
 
   /// Ids de eventos candidatos a alerta: no notificados y dentro de la

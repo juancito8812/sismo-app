@@ -7,6 +7,7 @@
  *
  * Despliegue: ver PUSH_SETUP.md
  */
+const crypto = require("crypto");
 const { onSchedule } = require("firebase-functions/v2/scheduler");
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { setGlobalOptions } = require("firebase-functions/v2");
@@ -36,6 +37,21 @@ const MAX_AGE_MS = 6 * 60 * 60 * 1000;
 const REVISION_EPSILON = 0.05;
 // Re-publicar push solo si USGS revisó la magnitud al alza en este delta o más.
 const ESCALATION_DELTA = 0.5;
+
+/**
+ * Comparación de secretos en tiempo constante (evita filtrar el secreto por
+ * timing al comparar byte a byte).
+ */
+function secretsMatch(provided, expected) {
+  const a = Buffer.from(provided, "utf8");
+  const b = Buffer.from(expected, "utf8");
+  if (a.length !== b.length) {
+    // Mismo trabajo que una comparación real para no filtrar la longitud.
+    crypto.timingSafeEqual(b, b);
+    return false;
+  }
+  return crypto.timingSafeEqual(a, b);
+}
 
 /** pushedAt de respaldo para el rollback de una revisión fallida. */
 function restorePushedAt(decision) {
@@ -224,16 +240,26 @@ exports.ping = onCall(async () => {
  *   - revision: false → publica un sismo nuevo M 4.8 (camino de primera
  *     alerta).
  *   - mag: número opcional para el modo no-revisión (2.5–9.0).
- *   - secret: opcional; si definís la config `test.secret` (o la variable de
- *     entorno TEST_SECRET al desplegar), las llamadas sin el secreto correcto
- *     se rechazan. Vacío = función abierta (solo para pruebas iniciales).
+ *   - secret: OBLIGATORIO. La función queda bloqueada salvo que se despliegue
+ *     con TEST_SECRET (functions/.env) y la llamada lo incluya. Sin secreto
+ *     configurado responde failed-precondition; con secreto incorrecto,
+ *     permission-denied. Evita que cualquiera dispare alertas de prueba al
+ *     tópico de todos los dispositivos.
  *
  * Los sismos de prueba usan ids `test-...` y quedarán en el historial del
  * dispositivo; limpialos con Ajustes → Limpiar DB.
  */
 exports.sendTestQuake = onCall(async (request) => {
   const secret = process.env.TEST_SECRET || "";
-  if (secret && request.data?.secret !== secret) {
+  if (!secret) {
+    throw new HttpsError(
+      "failed-precondition",
+      "sendTestQuake está bloqueado: definí TEST_SECRET en functions/.env " +
+        "y redesplegá (ver PUSH_SETUP.md)"
+    );
+  }
+  const provided = typeof request.data?.secret === "string" ? request.data.secret : "";
+  if (!secretsMatch(provided, secret)) {
     throw new HttpsError("permission-denied", "secret inválido");
   }
 

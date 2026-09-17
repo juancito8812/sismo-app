@@ -231,20 +231,32 @@ class AlertEngine {
       final qualifies = eq.magnitude >= minMag;
       final rev = revisions[eq.id];
       if (!qualifies && rev == null) continue;
-      if (rev != null) {
-        await notifier.showSismoAlert(
-          id: eq.id.hashCode & 0x7FFFFFFF,
-          title: rev.titleFor(eq),
-          body: rev.bodyFor(eq, minMag),
-        );
-        notified++;
-      } else if (toNotify.contains(eq.id)) {
-        await notifier.showSismoAlert(
-          id: eq.id.hashCode & 0x7FFFFFFF,
-          title: 'Sismo detectado M${eq.magnitude.toStringAsFixed(1)}',
-          body: eq.place,
-        );
-        notified++;
+      // Re-verificación contra la DB justo antes de sonar: el push corre en
+      // otro isolate y pudo notificar este evento (o esta revisión) mientras
+      // corría el ciclo. Si ya está notificado CON esta misma magnitud,
+      // alguien más lo procesó: no volver a sonar. Si la magnitud difiere,
+      // la re-alerta de revisión es legítima y sigue.
+      final fresh = await LocalDb.instance.byId(eq.id);
+      final alreadyProcessed =
+          fresh != null && fresh.notified == 1 && fresh.magnitude == eq.magnitude;
+      if (!alreadyProcessed) {
+        if (rev != null) {
+          await notifier.showSismoAlert(
+            id: eq.id.hashCode & 0x7FFFFFFF,
+            title: rev.titleFor(eq),
+            body: rev.bodyFor(eq, minMag),
+            payload: eq.id,
+          );
+          notified++;
+        } else if (toNotify.contains(eq.id)) {
+          await notifier.showSismoAlert(
+            id: eq.id.hashCode & 0x7FFFFFFF,
+            title: 'Sismo detectado M${eq.magnitude.toStringAsFixed(1)}',
+            body: eq.place,
+            payload: eq.id,
+          );
+          notified++;
+        }
       }
       // Marcar como procesado siempre que califique, haya sonado o no,
       // para que un evento no reaparezca como "nuevo" en cada ciclo.

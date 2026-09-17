@@ -111,17 +111,16 @@ class PushNotificationService {
 
   bool _initialized = false;
 
-  /// Payload del sismo cuya notificación abrió la app (foreground tap o
-  /// cold start). Null si el arranque no vino de una notificación; Home lo
-  /// consume y lo limpia con [clearInitialNotificationPayload].
-  PushQuakeData? _initialPayload;
+  /// Id del sismo cuya notificación abrió la app (tap en notificación local
+  /// o en push). Null si el arranque no vino de un tap; Home lo consume y
+  /// lo limpia con [clearInitialQuakeId].
+  String? _initialQuakeId;
 
-  /// Datos del sismo cuya notificación abrió la app, o null si el arranque
-  /// no vino de un tap en una notificación.
-  PushQuakeData? get initialNotificationPayload => _initialPayload;
+  /// Id del sismo a abrir al iniciar/navegar, o null si no hubo tap.
+  String? get initialQuakeId => _initialQuakeId;
 
-  /// Limpia el payload inicial, ya consumido por Home.
-  void clearInitialNotificationPayload() => _initialPayload = null;
+  /// Limpia el id inicial, ya consumido por Home.
+  void clearInitialQuakeId() => _initialQuakeId = null;
 
   /// Ids siendo procesados en este isolate (evita doble notificación si FCM
   /// entrega el mismo mensaje dos veces en ráfaga).
@@ -140,6 +139,15 @@ class PushNotificationService {
     if (cb != null) unawaited(cb());
   }
 
+  /// Rutea el tap de una notificación local al mismo mecanismo que el tap
+  /// de push: guarda el id del sismo y avisa a la UI (si ya se registró).
+  /// Público para testear sin plugins; initialize() lo asigna a
+  /// NotificationService.onQuakeTap.
+  static void handleLocalNotificationTap(String quakeId) {
+    PushNotificationService.instance._initialQuakeId ??= quakeId;
+    _notifyTap();
+  }
+
   /// Inicializa Firebase + FCM en foreground: permisos, suscripción al
   /// tópico, token y listener de mensajes.
   ///
@@ -149,6 +157,21 @@ class PushNotificationService {
   Future<void> initialize() async {
     if (_initialized) return;
     _initialized = true;
+
+    // Notificaciones locales: init + router de taps. Debe correr antes que
+    // cualquier otra cosa: un cold start desde una notificación local deja
+    // el id en [NotificationService.pendingTapPayload] (la UI aún no
+    // existía) y acá se drena al mecanismo único de taps.
+    try {
+      await NotificationService.instance.init();
+      NotificationService.onQuakeTap = handleLocalNotificationTap;
+      final pending = NotificationService.pendingTapPayload;
+      if (pending != null) {
+        NotificationService.pendingTapPayload = null;
+        handleLocalNotificationTap(pending);
+      }
+    } catch (_) {}
+
     try {
       await Firebase.initializeApp(); // lee google-services.json en Android
     } catch (e) {
@@ -162,8 +185,8 @@ class PushNotificationService {
 
     // Canal Android creado desde ya: si un push llega con la app cerrada,
     // la notificación local necesita el canal existente con su sonido.
+    // (init() ya corrió arriba.)
     try {
-      await NotificationService.instance.init();
       await NotificationService.instance.ensureChannels();
     } catch (_) {}
 
@@ -188,7 +211,7 @@ class PushNotificationService {
     // Tap en notificación con la app en background: guarda el payload y
     // avisa a la UI para abrir el detalle del sismo.
     FirebaseMessaging.onMessageOpenedApp.listen((message) {
-      _storePayloadFrom(message);
+      _storeQuakeIdFrom(message);
       _notifyTap();
     });
 
@@ -202,21 +225,21 @@ class PushNotificationService {
     );
   }
 
-  /// Guarda el payload de un mensaje como payload inicial si es una alerta
-  /// de sismo válida.
-  void _storePayloadFrom(RemoteMessage message) {
+  /// Guarda el id del sismo del mensaje como id inicial si es una alerta
+  /// de sismo válida (sin pisar un id ya capturado).
+  void _storeQuakeIdFrom(RemoteMessage message) {
     final quake = parseQuakeData(
       message.data.map((k, v) => MapEntry(k, v?.toString())),
       receivedAt: DateTime.now(),
     );
-    if (quake != null) _initialPayload = quake;
+    if (quake != null) _initialQuakeId ??= quake.id;
   }
 
   Future<void> _captureInitialMessage(FirebaseMessaging messaging) async {
     try {
       final message = await messaging.getInitialMessage();
       if (message == null) return;
-      _storePayloadFrom(message);
+      _storeQuakeIdFrom(message);
       _notifyTap();
     } catch (_) {}
   }
@@ -245,12 +268,22 @@ class PushNotificationService {
           'google-services.json real?)';
     }
     try {
+      // El backend exige TEST_SECRET (ver PUSH_SETUP.md); se compila en la
+      // app con --dart-define=TEST_SECRET=... para que el botón funcione
+      // sin recurrir a curl.
+      const testSecret = String.fromEnvironment('TEST_SECRET');
+      if (testSecret.isEmpty) {
+        return 'sendTestQuake está bloqueado: compilá la app con '
+            '--dart-define=TEST_SECRET=... y desplegá la función con el '
+            'mismo secreto (functions/.env).';
+      }
       final callable = FirebaseFunctions.instanceFor(
         region: 'us-central1',
       ).httpsCallable('sendTestQuake');
-      final res = await callable
-          .call(<String, dynamic>{'revision': withRevision})
-          .timeout(const Duration(seconds: 30));
+      final res = await callable.call(<String, dynamic>{
+        'revision': withRevision,
+        'secret': testSecret,
+      }).timeout(const Duration(seconds: 30));
       final data = res.data as Map<String, dynamic>? ?? const {};
       if (withRevision) {
         final first = data['first'] as Map<String, dynamic>?;
@@ -323,7 +356,8 @@ class PushNotificationService {
         return;
       }
       if (!_inFlight.add(eq.id)) return;
-      await _showAndMark(eq, rev.titleFor(eq), rev.bodyFor(eq, minMag));
+      await _showAndMark(eq, rev.titleFor(eq), rev.bodyFor(eq, minMag),
+          payload: eq.id);
       return;
     }
 
@@ -342,16 +376,19 @@ class PushNotificationService {
       eq,
       'Sismo detectado M${eq.magnitude.toStringAsFixed(1)}',
       eq.place,
+      payload: eq.id,
     );
   }
 
-  /// Persiste, muestra la notificación local y marca como notificado.
+  /// Persiste, muestra la notificación local (con el id del sismo como
+  /// payload, para que el tap abra el detalle) y marca como notificado.
   /// El llamador debe haber agregado el id a [_inFlight] antes de llamar.
   static Future<void> _showAndMark(
     Earthquake eq,
     String title,
-    String body,
-  ) async {
+    String body, {
+    String? payload,
+  }) async {
     final db = LocalDb.instance;
     try {
       await db.upsertNotified(eq);
@@ -361,6 +398,7 @@ class PushNotificationService {
         id: eq.id.hashCode & 0x7FFFFFFF,
         title: title,
         body: body,
+        payload: payload,
       );
       await db.markNotified(eq.id);
     } finally {

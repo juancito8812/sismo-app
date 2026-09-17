@@ -82,33 +82,55 @@ Esto publica:
 
 ### Probar el pipeline completo (sendTestQuake)
 
-Sin esperar un sismo real, dispará una prueba end-to-end:
+**Requisito: la función está bloqueada por defecto.** Definí el secreto en
+el backend antes de poder probar:
+
+```bash
+# functions/.env  (gitignoreado; no commitear)
+TEST_SECRET=un-secreto-largo-y-aleatorio
+```
+
+Redesplegá (`npx firebase-tools@latest deploy --only functions`). Sin ese
+archivo la función responde `failed-precondition`; con secreto incorrecto,
+`permission-denied`.
+
+**Desde la app:** compilá con el mismo secreto para que el botón
+**Ajustes → Probar alerta push** lo incluya automáticamente:
+
+```bash
+flutter build apk --debug \
+  --dart-define=TEST_SECRET=un-secreto-largo-y-aleatorio
+```
+
+(Sin el dart-define, el botón avisa que falta el secreto en lugar de
+fallar.)
+
+**O desde curl** (sin necesidad de compilar):
 
 ```bash
 PROJECT_ID=$(firebase use 2>/dev/null | head -1 | sed 's/^[A-Za-z]* //')
 curl -s -X POST \
   "https://us-central1-${PROJECT_ID}.cloudfunctions.net/sendTestQuake" \
   -H "Content-Type: application/json" \
-  -d '{"data": {}}'
+  -H "Authorization: Bearer $(gcloud auth print-identity-token)" \
+  -d '{"data": {"secret": "un-secreto-largo-y-aleatorio"}}'
 ```
 
 En el dispositivo (con la app abierta o cerrada) deben llegar **dos
 notificaciones**: `Sismo detectado M4.0` y luego `Sismo revisado: M4.6 (era
 M4.0)` — la segunda ejercita el camino de revisión con el campo
-`revisedFrom`. La respuesta del curl muestra el resultado de cada paso
-(`first` y `revision`); si algún paso devuelve `skipped`, el motivo está en
-el campo (`duplicate`, `stale`, `fcm_error`).
+`revisedFrom`. **Tocar cualquiera de las dos abre el detalle del sismo**
+(en foreground, background y cold start). La respuesta del curl muestra el
+resultado de cada paso (`first` y `revision`); si algún paso devuelve
+`skipped`, el motivo está en el campo (`duplicate`, `stale`, `fcm_error`).
 
 Variantes:
 
-- Solo primera alerta (sin revisión): `'{"data": {"revision": false}}'`
-- Con otra magnitud: `'{"data": {"revision": false, "mag": 3.2}}'`
+- Solo primera alerta (sin revisión): `'{"data": {"revision": false, "secret": "..."}}'`
+- Con otra magnitud: `'{"data": {"revision": false, "mag": 3.2, "secret": "..."}}'`
 
 Los sismos de prueba usan ids `test-...` y quedan en el historial local;
-borralos con **Ajustes → Limpiar DB**. Para bloquear la función a terceros,
-creá `functions/.env` con `TEST_SECRET=tu-secreto`, redeployá y pasá
-`"secret": "..."` en el body (además del header de autenticación que la
-API callable exige con llamadas no anónimas).
+borralos con **Ajustes → Limpiar DB**.
 
 ## Costos
 
